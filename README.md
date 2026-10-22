@@ -5,6 +5,9 @@
 [![Vite](https://img.shields.io/badge/Vite-v8-purple.svg)](https://vitejs.dev/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0%2B-orange.svg)](https://www.mysql.com/)
 [![AWS](https://img.shields.io/badge/AWS-S3%20%7C%20CloudFront%20%7C%20EC2-yellow.svg)](https://aws.amazon.com/)
+[![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)](LICENSE)
+[![Security](https://img.shields.io/badge/Security-HMAC%20%7C%20JWT%20%7C%20bcrypt-red.svg)](SETUP_GUIDE.md)
+[![Setup Guide](https://img.shields.io/badge/Guide-Complete%20AWS%20Setup-blue.svg)](SETUP_GUIDE.md)
 
 Fundit is a production-ready, security-focused crowdfunding web application where individuals and non-profits can create campaigns, raise verified funds, track expenses transparently, and accept donations via Razorpay.
 
@@ -193,6 +196,10 @@ erDiagram
 
 ---
 
+> 📘 **For complete setup — including AWS, Google OAuth, Razorpay, and Git workflow — see [SETUP_GUIDE.md](SETUP_GUIDE.md)**
+
+---
+
 ## 🚀 Quick Start & Local Setup
 
 ### 1. Prerequisites
@@ -298,14 +305,50 @@ Open your browser at **`http://localhost:5173`**.
 
 ---
 
+## ⚡ Git Commit Workflow
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) for clear, portfolio-ready history:
+
+```bash
+# Stage everything
+git add .
+
+# Commit with a descriptive message
+git commit -m "feat: add password visibility toggle and strength indicator"
+git commit -m "fix: navbar always visible with position:fixed"
+git commit -m "docs: complete AWS + Razorpay deployment guide"
+git commit -m "style: elevate category pills and icon box sizing"
+
+# Push to GitHub
+git push origin main
+```
+
+| Prefix | Purpose |
+|---|---|
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `style:` | CSS/UI update |
+| `refactor:` | Code restructure |
+| `docs:` | Documentation |
+| `chore:` | Deps/config |
+
+> 📘 Full Git workflow, branching, and CI/CD details: [SETUP_GUIDE.md §10](SETUP_GUIDE.md)
+
+---
+
 ## ☁️ AWS Production Deployment Guide
 
+> 📘 **Complete step-by-step AWS deployment: [SETUP_GUIDE.md §12–14](SETUP_GUIDE.md)**
+
 ### Architecture Overview
-- **Compute**: AWS EC2 (t3.micro/small running Ubuntu 22.04 LTS with PM2 + Nginx reverse proxy)
-- **Database**: AWS RDS MySQL Multi-AZ or single instance
-- **Storage**: AWS S3 Bucket (Private, Block All Public Access enabled)
-- **CDN**: AWS CloudFront distribution pointing to S3 via Origin Access Control (OAC)
-- **Domain & SSL**: AWS Route 53 + AWS Certificate Manager (ACM) free SSL/TLS
+- **Compute**: AWS EC2 (t3.small — Ubuntu 22.04 LTS, Node.js 20, PM2)
+- **Database**: AWS RDS MySQL 8.0 (private subnet, Multi-AZ optional)
+- **Storage**: AWS S3 (Private bucket — images served via CloudFront OAC)
+- **CDN**: AWS CloudFront (Frontend SPA + Campaign images)
+- **Load Balancing**: AWS ALB with HTTPS termination (SSL from ACM)
+- **Network**: VPC + Security Groups (EC2 only reachable from ALB, RDS only from EC2)
+- **Domain & SSL**: AWS Route 53 + ACM free wildcard SSL certificate
+- **CI/CD**: GitHub Actions → S3 frontend deploy + EC2 SSH backend deploy
 
 ### EC2 Nginx Configuration Snippet
 ```nginx

@@ -458,15 +458,22 @@ input, textarea, select { font-family: inherit; }
 }
 
 /* ─── Navbar ─────────────────────────────────────────────────── */
+/* Fixed so the nav is ALWAYS visible regardless of scroll position */
 .navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 100;
+  left: 0;
+  right: 0;
+  z-index: 1000;
   height: var(--nav-height);
-  background: rgba(15,23,42,.95);
-  backdrop-filter: blur(12px);
+  background: rgba(15,23,42,.97);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 2px 20px rgba(0,0,0,.3);
 }
+/* Offset body so content doesn't hide behind fixed navbar */
+body { padding-top: var(--nav-height); }
 .navbar__inner {
   height: 100%;
   display: flex;
@@ -888,13 +895,44 @@ input, textarea, select { font-family: inherit; }
 
 /* ─── Auth pages ─────────────────────────────────────────────── */
 .auth-page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--nav-height));
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #0f172a 0%, #134e4a 100%);
   padding: var(--space-8) var(--space-6);
 }
+
+/* ─── Password field with eye-toggle ─────────────────────────── */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.password-wrapper .form-input {
+  padding-right: 48px; /* room for the eye button */
+  width: 100%;
+}
+.pw-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--text-muted);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+  border-radius: var(--radius-sm);
+}
+.pw-toggle:hover { color: var(--color-primary); transform: translateY(-50%) scale(1.15); }
+.pw-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .auth-card {
   width: 100%;
   max-width: 440px;

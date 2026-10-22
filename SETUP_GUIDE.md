@@ -1,493 +1,801 @@
-# ðŸ“˜ Fundit â€” Complete End-to-End Setup & Deployment Guide
+# Fundit — Complete Setup, Deployment & Operations Guide
 
-This document is the **single source of truth** for setting up, running, configuring, testing, and deploying the **Fundit** Crowdfunding Platform from absolute scratch.
-
-Whether you are running it locally on your laptop for the first time, demoing it in a third-year capstone viva/interview, or deploying it to production on AWS, every step is explained in plain English with exact commands.
+> **Audience:** Developer, Capstone Evaluators, Interviewers, New Contributors
+> Every single step — from zero to production on AWS — is explained with exact commands.
 
 ---
 
-## ðŸ“‘ Table of Contents
+## Table of Contents
+
 1. [Prerequisites](#1-prerequisites)
-2. [Step 1: Database Setup from Scratch (MySQL 8.0)](#step-1-database-setup-from-scratch-mysql-80)
-3. [Step 2: Backend Setup & Environment Variables](#step-2-backend-setup--environment-variables)
-4. [Step 3: Image Uploads (Local vs AWS S3 + CloudFront)](#step-3-image-uploads-local-vs-aws-s3--cloudfront)
-5. [Step 4: Payment Gateway (Simulated vs Real Razorpay)](#step-4-payment-gateway-simulated-vs-real-razorpay)
-6. [Step 5: Google OAuth Setup (Optional)](#step-5-google-oauth-setup-optional)
-7. [Step 6: Frontend Setup & Running the Full Stack App](#step-6-frontend-setup--running-the-full-stack-app)
-8. [Step 7: Pre-Seeded Test Accounts](#step-7-pre-seeded-test-accounts)
-9. [Step 8: AWS Cloud Production Deployment Guide](#step-8-aws-cloud-production-deployment-guide)
-10. [Troubleshooting & Common Errors](#troubleshooting--common-errors)
+2. [Clone the Repository & Git Basics](#2-clone-the-repository--git-basics)
+3. [Database Setup — MySQL 80](#3-database-setup--mysql-80)
+4. [Backend Setup & Environment Variables](#4-backend-setup--environment-variables)
+5. [Image Uploads — Local vs AWS S3 + CloudFront](#5-image-uploads--local-vs-aws-s3--cloudfront)
+6. [Payment Gateway — Simulated vs Real Razorpay](#6-payment-gateway--simulated-vs-real-razorpay)
+7. [Google OAuth 20 Setup](#7-google-oauth-20-setup)
+8. [Frontend Setup & Running the Full Stack](#8-frontend-setup--running-the-full-stack)
+9. [Pre-Seeded Test Accounts](#9-pre-seeded-test-accounts)
+10. [Git Workflow — How to Commit & Push Anytime](#10-git-workflow--how-to-commit--push-anytime)
+11. [GitHub Repository Setup](#11-github-repository-setup)
+12. [AWS Production Deployment Architecture](#12-aws-production-deployment-architecture)
+13. [Deploying Frontend to S3 + CloudFront](#13-deploying-the-frontend-to-s3--cloudfront)
+14. [Deploying Backend to EC2](#14-deploying-the-backend-to-ec2)
+15. [Razorpay Production Integration](#15-razorpay-production-integration)
+16. [Environment Variable Quick Reference](#16-environment-variable-quick-reference)
+17. [Troubleshooting](#17-troubleshooting--common-errors)
 
 ---
 
 ## 1. Prerequisites
 
-Before starting, ensure you have the following installed on your machine:
-
-| Requirement | Recommended Version | Verification Command | Download Link |
+| Tool | Minimum Version | Check | Install |
 |---|---|---|---|
-| **Node.js** | v18.0.0 or higher (v20+ recommended) | `node -v` | [nodejs.org](https://nodejs.org/) |
-| **npm** | v9.0.0 or higher | `npm -v` | Bundled with Node.js |
-| **MySQL Server** | v8.0 or higher | `mysql --version` | [dev.mysql.com](https://dev.mysql.com/downloads/installer/) |
-| **Git** | Any modern version | `git --version` | [git-scm.com](https://git-scm.com/) |
+| Node.js | v18.0 (v20+ recommended) | `node -v` | https://nodejs.org/ |
+| npm | v9.0+ | `npm -v` | Bundled with Node.js |
+| MySQL Server | v8.0+ | `mysql --version` | https://dev.mysql.com/downloads/installer/ |
+| Git | Any modern | `git --version` | https://git-scm.com/ |
+| AWS CLI | v2+ (for deploy) | `aws --version` | https://aws.amazon.com/cli/ |
 
 ---
 
-## Step 1: Database Setup from Scratch (MySQL 8.0)
+## 2. Clone the Repository & Git Basics
 
-### 1.1 Ensure MySQL Service is Running
-- **On Windows**:
-  1. Press `Win + R`, type `services.msc`, and press Enter.
-  2. Locate **MySQL80** (or `MySQL`). Ensure its status says **Running**.
-  3. Or run in Administrator PowerShell:
-     ```powershell
-     Start-Service MySQL80
-     ```
-- **On Linux / Ubuntu**:
-  ```bash
-  sudo systemctl start mysql
-  sudo systemctl enable mysql
-  ```
-
----
-
-### 1.2 Create Database and User
-Open your command prompt or terminal and connect to MySQL as `root`:
 ```bash
-mysql -u root -p
+git clone https://github.com/Prashant-git16/FUNDIT.git
+cd FUNDIT
 ```
-*(Enter your MySQL root password when prompted)*
 
-Run the following SQL commands:
+Structure:
+```
+FUNDIT/
++-- backend/    <- Node.js + Express API
++-- frontend/   <- React 19 + Vite SPA
+```
+
+---
+
+## 3. Database Setup — MySQL 8.0
+
+### 3.1 Start MySQL
+
+**Windows PowerShell (Admin):**
+```powershell
+Start-Service MySQL80
+```
+
+**Linux:**
+```bash
+sudo systemctl start mysql && sudo systemctl enable mysql
+```
+
+**macOS Homebrew:**
+```bash
+brew services start mysql
+```
+
+### 3.2 Create Database & Load Schema
+
+**Option A — Automated (Windows):**
+```powershell
+cd backend
+.\setup-db.bat
+```
+
+**Option B — Manual:**
 ```sql
--- 1. Create the database with full UTF-8 support (supports Hindi text and emojis)
-CREATE DATABASE IF NOT EXISTS fundit_db 
-  CHARACTER SET utf8mb4 
-  COLLATE utf8mb4_unicode_ci;
+-- Open MySQL shell
+mysql -u root -p
 
--- 2. Create dedicated user 'fundit_user' with password 'Fundit@123'
-CREATE USER IF NOT EXISTS 'fundit_user'@'localhost' IDENTIFIED BY 'Fundit@123';
-
--- 3. Grant necessary privileges
+CREATE DATABASE IF NOT EXISTS fundit_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'fundit_user'@'localhost' IDENTIFIED BY 'FunditPass123!';
 GRANT ALL PRIVILEGES ON fundit_db.* TO 'fundit_user'@'localhost';
-
--- 4. Apply changes
 FLUSH PRIVILEGES;
-
--- 5. Exit MySQL
 EXIT;
 ```
 
----
-
-### 1.3 Import Schema & Seed Data
-From the root of the `FUNDIT` project, run:
-
-- **Command Prompt (CMD) / PowerShell**:
-  ```bash
-  # Import database tables
-  mysql -u fundit_user -pFundit@123 fundit_db < backend\schema.sql
-
-  # Import sample campaigns, users, donations, and expenses
-  mysql -u fundit_user -pFundit@123 fundit_db < backend\seed.sql
-  ```
-
-- **Linux / macOS**:
-  ```bash
-  mysql -u fundit_user -pFundit@123 fundit_db < backend/schema.sql
-  mysql -u fundit_user -pFundit@123 fundit_db < backend/seed.sql
-  ```
-
----
-
-### 1.4 Verify Database
-Run a quick query to verify that tables and seed data exist:
+Then load schema + seed:
 ```bash
-mysql -u fundit_user -pFundit@123 -e "USE fundit_db; SHOW TABLES; SELECT count(*) AS total_campaigns FROM campaigns;"
+mysql -u root -p fundit_db < backend/schema.sql
+mysql -u root -p fundit_db < backend/seed.sql
 ```
-Expected output:
-```
-+---------------------+
-| Tables_in_fundit_db |
-+---------------------+
-| campaigns           |
-| donations           |
-| expenses            |
-| moderation_logs     |
-| users               |
-+---------------------+
-total_campaigns: 6
+
+### 3.3 Verify
+
+```sql
+mysql -u fundit_user -p fundit_db
+-- Password: FunditPass123!
+SHOW TABLES;             -- users, campaigns, donations, expenses
+SELECT COUNT(*) FROM campaigns;   -- 6
 ```
 
 ---
 
-## Step 2: Backend Setup & Environment Variables
+## 4. Backend Setup & Environment Variables
 
-### 2.1 Install Backend Dependencies
-Open a terminal in the `backend/` folder:
 ```bash
 cd backend
 npm install
+copy .env.example .env   # Windows
+cp .env.example .env     # Mac/Linux
 ```
 
----
-
-### 2.2 Configure `backend/.env`
-Create or edit `backend/.env`. A complete configuration looks like this:
-
-```ini
-# Server Port
-PORT=5000
+Edit `backend/.env`:
+```dotenv
+# Server
 NODE_ENV=development
+PORT=5000
 
-# MySQL Database Configuration
+# Database
 DB_HOST=localhost
 DB_PORT=3306
-DB_USER=fundit_user
-DB_PASSWORD=Fundit@123
 DB_NAME=fundit_db
+DB_USER=fundit_user
+DB_PASS=FunditPass123!
 
-# JSON Web Token (Session Security)
-JWT_SECRET=dev_jwt_secret_change_before_production_use_128bit
-JWT_EXPIRES_IN=15m
+# JWT & Cookie (generate with: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
+JWT_SECRET=your_64_char_random_secret
+COOKIE_SECRET=another_64_char_random_secret
 
-# CORS Allowed Origins (Comma-separated)
-# In development, any localhost port is automatically allowed
-CORS_ORIGIN=http://localhost:5173,http://localhost:5174
+# AWS S3 (leave blank for local disk upload)
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION=ap-south-1
+S3_BUCKET_NAME=
 
-# â”€â”€â”€ OPTIONAL INTEGRATIONS (Can be left blank for offline/local testing) â”€â”€â”€
+# CloudFront CDN URL
+CLOUDFRONT_URL=
 
-# Razorpay Test Credentials (Leave blank for built-in Simulated Demo Mode)
+# Razorpay (leave blank for simulated payments)
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 
-# AWS S3 & CloudFront (Leave blank for built-in Local Disk Storage in backend/uploads/)
-AWS_REGION=ap-south-1
-S3_BUCKET_NAME=
-CLOUDFRONT_DOMAIN=
-
-# Google OAuth Client ID (Leave blank to use email/password auth only)
+# Google OAuth
 GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
+
+# Frontend URL (for CORS)
+FRONTEND_URL=http://localhost:5173
 ```
 
----
-
-### 2.3 Start Backend Server
+Start backend:
 ```bash
-npm run dev
+npm run dev    # development (auto-restart)
+npm start      # production
 ```
-You will see:
+
+Backend runs at: http://localhost:5000
+Health check: http://localhost:5000/api/health
+
+---
+
+## 5. Image Uploads — Local vs AWS S3 + CloudFront
+
+### Local Disk (default dev mode)
+
+When S3_BUCKET_NAME is blank, images go to `backend/uploads/` and are served at:
 ```
-[db] MySQL connection pool ready
-[server] Fundit API running on port 5000 (development)
+http://localhost:5000/uploads/<filename>
 ```
-Test health check in browser: **`http://localhost:5000/api/health`** (Returns `{"status":"ok"}`).
+No config needed.
 
-> **Note on Port 5000 (`EADDRINUSE`)**: If port 5000 is already in use by an old Node process or another app, see [Troubleshooting](#troubleshooting--common-errors) below.
+### AWS S3 + CloudFront (production)
 
----
+**Step 1 — Create S3 Bucket:**
+1. AWS S3 Console -> Create bucket
+2. Name: `fundit-uploads-prod` (globally unique)
+3. Region: ap-south-1 (Mumbai)
+4. Block all public access: KEEP ENABLED (CloudFront serves files)
+5. Create bucket
 
-## Step 3: Image Uploads (Local vs AWS S3 + CloudFront)
+**Step 2 — Set Bucket CORS:**
+In bucket -> Permissions -> CORS:
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET","PUT","POST"],
+    "AllowedOrigins": ["https://yourdomain.com","http://localhost:5173"],
+    "ExposeHeaders": []
+  }
+]
+```
 
-Fundit features a smart storage adapter in [`backend/upload.js`](file:///c:/Users/hp/OneDrive/Desktop/progrram/FUNDIT/backend/upload.js):
+**Step 3 — Create CloudFront Distribution:**
+1. CloudFront -> Create Distribution
+2. Origin: your S3 bucket
+3. Origin Access: Origin Access Control (OAC) -> Create new -> Sign requests: Yes
+4. Viewer protocol: Redirect HTTP to HTTPS
+5. Cache policy: CachingOptimized
 
-### Option A: Local Disk Storage (Default â€” Zero Setup)
-- If `S3_BUCKET_NAME` is left blank in `.env`, Fundit **automatically** saves uploaded campaign images to `backend/uploads/campaigns/`.
-- Images are served instantly through `http://localhost:5000/uploads/campaigns/...` and proxied through Vite.
-- **No AWS account required** for local development or college vivas!
-
----
-
-### Option B: AWS S3 + CloudFront (Production Mode)
-To use real AWS cloud storage:
-
-1. **Create an S3 Bucket**:
-   - Go to [AWS S3 Console](https://s3.console.aws.amazon.com/).
-   - Click **Create Bucket**.
-   - Name: e.g. `fundit-assets-prod`.
-   - Region: `ap-south-1` (Asia Pacific - Mumbai).
-   - **Keep "Block all public access" ENABLED** (Best practice: private bucket).
-   - Click **Create Bucket**.
-
-2. **Create IAM User & Access Keys**:
-   - Go to [AWS IAM Console](https://us-east-1.console.aws.amazon.com/iam/).
-   - Click **Users** â†’ **Create user** (e.g. `fundit-app-user`).
-   - Attach policy directly: Create inline policy for S3:
-     ```json
-     {
-       "Version": "2012-10-17",
-       "Statement": [
-         {
-           "Effect": "Allow",
-           "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
-           "Resource": "arn:aws:s3:::fundit-assets-prod/*"
-         }
-       ]
-     }
-     ```
-   - Go to **Security credentials** tab â†’ **Create access key** â†’ Application running outside AWS.
-   - Configure AWS credentials locally:
-     ```bash
-     aws configure
-     # Enter AWS Access Key ID, AWS Secret Access Key, and region (ap-south-1)
-     ```
-
-3. **Create CloudFront Distribution**:
-   - Go to [AWS CloudFront](https://console.aws.amazon.com/cloudfront/).
-   - Origin domain: select your S3 bucket `fundit-assets-prod.s3.ap-south-1.amazonaws.com`.
-   - Origin Access: Choose **Origin access control settings (recommended)** â†’ Create control setting.
-   - Click **Create Distribution**.
-   - Copy the policy statement provided by CloudFront and paste it into the S3 Bucket Policy.
-   - Note your CloudFront domain: `https://d123456abcdef8.cloudfront.net`.
-
-4. **Update `backend/.env`**:
-   ```ini
-   AWS_REGION=ap-south-1
-   S3_BUCKET_NAME=fundit-assets-prod
-   CLOUDFRONT_DOMAIN=https://d123456abcdef8.cloudfront.net
-   ```
+**Step 4 — Update .env:**
+```dotenv
+S3_BUCKET_NAME=fundit-uploads-prod
+CLOUDFRONT_URL=https://d1abc123xyz.cloudfront.net
+```
 
 ---
 
-## Step 4: Payment Gateway (Simulated vs Real Razorpay)
+## 6. Payment Gateway — Simulated vs Real Razorpay
 
-### Option A: Simulated Demo Mode (Default â€” Zero Setup)
-- If `RAZORPAY_KEY_ID` is left empty in `.env`:
-  - When a user clicks **Donate â‚¹500**, Fundit runs in **Simulated Demo Mode**.
-  - It generates a valid order ID (`order_sim_...`), records the donation in MySQL, runs an **atomic database transaction** (`UPDATE campaigns SET raised_amount = raised_amount + ?`), adds the user to the Donor Wall, and updates the campaign progress bar!
-  - **Perfect for vivas and demonstrations without internet gateway dependency.**
+### Simulated (default when RAZORPAY_KEY_ID is blank)
 
----
+Backend returns `{ simulated: true }`, frontend shows payment confirmation.
+Donations are still saved to DB. No config needed for testing.
 
-### Option B: Real Razorpay Test Account
-To test with the official Razorpay Checkout modal:
+### Real Razorpay
 
-1. Sign up at [dashboard.razorpay.com](https://dashboard.razorpay.com/).
-2. Switch toggle to **Test Mode** (top-right).
-3. Navigate to **Account & Settings** â†’ **API Keys** â†’ **Generate Test Key**.
-4. Copy the generated credentials into `backend/.env`:
-   ```ini
-   RAZORPAY_KEY_ID=rzp_test_YourKeyIdHere
-   RAZORPAY_KEY_SECRET=YourSecretKeyHere
-   ```
-5. Restart backend (`npm run dev`).
-6. When donating, the Razorpay Checkout popup will appear:
-   - **Test Card**: `4111 1111 1111` (any future expiry, any CVV)
-   - **OTP**: Enter `123456`
-   - The backend validates the payment using **HMAC-SHA256 signature verification**.
+**Step 1:** Sign up at https://razorpay.com, complete KYC for production
 
----
+**Step 2:** Dashboard -> Settings -> API Keys -> Generate
+- Test keys: prefix `rzp_test_`
+- Live keys: prefix `rzp_live_` (requires KYC)
 
-## Step 5: Google OAuth Setup (Optional)
+**Step 3:** Update backend `.env`:
+```dotenv
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxx
+RAZORPAY_KEY_SECRET=your_razorpay_secret
+```
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a project: `Fundit`.
-3. Go to **APIs & Services** â†’ **OAuth consent screen** â†’ External â†’ Set App Name to `Fundit`.
-4. Go to **Credentials** â†’ **Create Credentials** â†’ **OAuth client ID**:
-   - Application type: **Web application**.
-   - Authorized JavaScript origins:
-     - `http://localhost:5173`
-     - `http://localhost:5174`
-5. Copy the **Client ID** into `backend/.env`:
-   ```ini
-   GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-   ```
+**Step 4:** Pass key to frontend — `frontend/.env.local`:
+```dotenv
+VITE_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxx
+```
+
+**Step 5 — Webhooks (Production):**
+1. Razorpay Dashboard -> Settings -> Webhooks -> Add New
+2. Webhook URL: `https://api.yourdomain.com/api/donations/webhook`
+3. Events: `payment.captured`, `payment.failed`
+4. Add `RAZORPAY_WEBHOOK_SECRET` to backend `.env`
 
 ---
 
-## Step 6: Frontend Setup & Running the Full Stack App
+## 7. Google OAuth 2.0 Setup
 
-### 6.1 Install Frontend Dependencies
-Open a second terminal in the `frontend/` folder:
+**Step 1 — Google Cloud Project:**
+1. console.cloud.google.com -> New project: Fundit
+2. Enable Google+ API and Google People API
+
+**Step 2 — OAuth Consent Screen:**
+1. APIs & Services -> OAuth consent screen
+2. User Type: External
+3. App name: Fundit, fill emails, scopes: email, profile
+4. Add your email as test user
+
+**Step 3 — Create OAuth Credentials:**
+1. APIs & Services -> Credentials -> Create OAuth client ID
+2. Application type: Web application
+3. Authorized redirect URIs:
+   - Dev: `http://localhost:5000/api/auth/google/callback`
+   - Prod: `https://api.yourdomain.com/api/auth/google/callback`
+
+**Step 4 — Update .env:**
+```dotenv
+GOOGLE_CLIENT_ID=123456789-abcde.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxx
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
+```
+
+---
+
+## 8. Frontend Setup & Running the Full Stack
+
 ```bash
 cd frontend
 npm install
 ```
 
----
+Create `frontend/.env.local`:
+```dotenv
+VITE_API_URL=http://localhost:5000
+VITE_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxx
+```
 
-### 6.2 Start Frontend Dev Server
 ```bash
-npm run dev
+npm run dev    # Runs at http://localhost:5173
 ```
-Output:
-```
-  VITE v8.3.4  ready in 200 ms
 
-  âžœ  Local:   http://localhost:5173/
-```
-Open your browser at **`http://localhost:5173/`**.
-
----
-
-### 6.3 Convenience Commands (From Project Root)
-You can also run commands from the project root:
+**Run both at once — open TWO terminals:**
 ```bash
-# Install all packages (both frontend and backend)
-npm run install:all
+# Terminal 1
+cd backend && npm run dev
 
-# Run backend from root
-npm run dev:backend
-
-# Run frontend from root
-npm run dev:frontend
-
-# Build frontend production bundle
-npm run build:frontend
+# Terminal 2
+cd frontend && npm run dev
 ```
 
 ---
 
-## Step 7: Pre-Seeded Test Accounts
+## 9. Pre-Seeded Test Accounts
 
-The seed script has already generated 4 verified accounts ready for testing:
+| Role | Email | Password |
+|---|---|---|
+| Admin | admin@fundit.in | Password1! |
+| Campaign Owner | priya@example.com | Password1! |
+| Campaign Owner | rahul@example.com | Password1! |
+| Donor | aarav@example.com | Password1! |
+| Viewer | meera@example.com | Password1! |
 
-| Role | Email | Password | What You Can Test |
+---
+
+## 10. Git Workflow — How to Commit & Push Anytime
+
+### One-Time Setup
+
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "you@email.com"
+```
+
+### Everyday Workflow
+
+```bash
+# See what changed
+git status
+
+# Stage all changes
+git add .
+
+# OR stage specific files
+git add frontend/src/pages/LoginPage.jsx
+
+# Commit with a meaningful message
+git commit -m "feat: add password visibility toggle and strength indicator"
+
+# Push to GitHub
+git push origin main
+```
+
+### Commit Message Convention (Conventional Commits)
+
+| Prefix | Use when |
+|---|---|
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `style:` | CSS/UI changes |
+| `refactor:` | Code restructure |
+| `docs:` | Documentation |
+| `chore:` | Config/dependencies |
+
+Examples:
+```bash
+git commit -m "feat: add Razorpay checkout with HMAC verification"
+git commit -m "fix: navbar always visible with position:fixed"
+git commit -m "docs: add complete AWS deployment guide"
+git commit -m "style: increase base font-size and icon sizing"
+git commit -m "chore: update backend dependencies"
+```
+
+### Useful Git Commands
+
+```bash
+git log --oneline -10          # Last 10 commits
+git diff                       # Uncommitted changes
+git stash                      # Temporarily save changes
+git stash pop                  # Restore stashed changes
+git pull origin main           # Get latest from GitHub
+git reset --soft HEAD~1        # Undo last commit (keeps changes)
+git checkout -- <file>         # Discard file changes
+```
+
+### Branching (for features)
+
+```bash
+git checkout -b feature/google-oauth
+# ... work and commit ...
+git push origin feature/google-oauth
+# Open Pull Request on GitHub -> merge to main
+```
+
+---
+
+## 11. GitHub Repository Setup
+
+### Create Repository
+
+1. github.com/new
+2. Name: FUNDIT, Description: Full-stack crowdfunding platform
+3. Public (for portfolio visibility)
+4. DO NOT initialize with README
+5. Create repository
+
+### Push Existing Code
+
+```bash
+cd FUNDIT
+git init
+git add .
+git commit -m "chore: initial full-stack project with frontend and backend"
+git branch -M main
+git remote add origin https://github.com/Prashant-git16/FUNDIT.git
+git push -u origin main
+```
+
+### GitHub Actions CI/CD
+
+Create `.github/workflows/deploy.yml`:
+```yaml
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: cd frontend && npm ci && npm run build
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+      - run: aws s3 sync frontend/dist s3://fundit-frontend-prod --delete
+      - run: aws cloudfront create-invalidation --distribution-id DIST_ID --paths "/*"
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/FUNDIT && git pull origin main
+            cd backend && npm install --production
+            pm2 restart fundit-api
+```
+
+Add to Settings -> Secrets:
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `EC2_HOST`
+- `EC2_SSH_KEY`
+
+---
+
+## 12. AWS Production Deployment Architecture
+
+```
+Internet
+    |
+    v
+Route 53 (DNS: yourdomain.com)
+    |
+    +-- yourdomain.com -------> CloudFront (CDN)
+    |                               |
+    |                        +------+------+
+    |                        |             |
+    |               S3: fundit-frontend  S3: fundit-uploads
+    |               (React build)       (User images)
+    |
+    +-- api.yourdomain.com --> ALB (HTTPS:443 -> HTTP:5000)
+                                    |
+                            +-------+-------+
+                            |               |
+                         EC2 AZ-1       EC2 AZ-2  (Auto Scaling)
+                            |               |
+                            +-------+-------+
+                                    |
+                               RDS MySQL 8.0
+                           (Private subnet, Multi-AZ)
+```
+
+### 12.1 IAM — Identity & Access Management
+
+NEVER use root credentials in code. Create a dedicated IAM user:
+
+1. IAM -> Users -> Create user -> name: `fundit-app`
+2. Permissions -> Attach policies -> AmazonS3FullAccess, CloudFrontFullAccess
+3. Security credentials -> Create access key
+4. Copy Access Key ID and Secret -> add to EC2 `.env`
+
+Better: Create IAM Role for EC2:
+1. IAM -> Roles -> Create role -> AWS service: EC2
+2. Attach: AmazonS3FullAccess + CloudFrontFullAccess
+3. Name: FunditEC2Role
+4. Attach role to EC2 instance (no hardcoded keys needed!)
+
+### 12.2 EC2 — Backend Server
+
+1. EC2 -> Launch instance
+2. AMI: Ubuntu 22.04 LTS
+3. Instance type: t3.small (2 vCPU, 2GB RAM)
+4. Key pair: Create new -> download .pem
+5. Security group: see section 12.8
+6. Storage: 20 GB gp3
+
+Connect:
+```bash
+chmod 400 fundit-key.pem
+ssh -i fundit-key.pem ubuntu@<EC2_PUBLIC_IP>
+```
+
+Setup on EC2:
+```bash
+# Install Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install PM2
+sudo npm install -g pm2
+
+# Clone & start
+cd /home/ubuntu
+git clone https://github.com/Prashant-git16/FUNDIT.git
+cd FUNDIT/backend
+npm install --production
+nano .env   # Add production values
+
+pm2 start index.js --name fundit-api
+pm2 startup        # Follow the printed command
+pm2 save
+```
+
+### 12.3 RDS — Managed MySQL
+
+1. RDS -> Create database -> MySQL 8.0
+2. Template: Free tier (capstone) or Production
+3. DB instance: fundit-db
+4. Instance class: db.t3.micro
+5. VPC: same as EC2, PRIVATE subnet
+6. Public access: NO
+7. Security group: allow port 3306 from EC2 security group only
+
+Load schema from EC2:
+```bash
+mysql -h <RDS_ENDPOINT> -u admin -p fundit_db < schema.sql
+mysql -h <RDS_ENDPOINT> -u admin -p fundit_db < seed.sql
+```
+
+### 12.4 S3 — Static Asset Storage
+
+Create TWO buckets:
+- `fundit-frontend-prod` — React build files (served via CloudFront)
+- `fundit-uploads-prod` — Campaign images (served via CloudFront)
+
+Both: Block all public access (CloudFront OAC will serve them).
+
+For frontend bucket: Properties -> Static website hosting -> Enable, Index: index.html, Error: index.html
+
+### 12.5 CloudFront — CDN
+
+Create Distribution 1 (Frontend):
+- Origin: fundit-frontend-prod S3 bucket
+- OAC: enabled
+- Default root object: index.html
+- Custom error: 404 -> /index.html -> 200 (for React Router)
+
+Create Distribution 2 (Images):
+- Origin: fundit-uploads-prod S3 bucket
+- OAC: enabled
+- Cache: CachingOptimized
+
+### 12.6 ALB — Application Load Balancer
+
+1. EC2 -> Load Balancers -> Create -> Application Load Balancer
+2. Name: fundit-alb, Scheme: Internet-facing
+3. Subnets: 2+ Availability Zones (public subnets)
+4. Security group: allow 80 and 443 from 0.0.0.0/0
+5. Listeners:
+   - Port 80 -> Redirect to HTTPS (443)
+   - Port 443 -> Forward to Target Group (EC2:5000)
+6. Target Group: Protocol HTTP, Port 5000, Health check: /api/health
+7. Attach SSL cert from ACM
+
+### 12.7 NLB — Network Load Balancer (optional)
+
+Use NLB only if you need:
+- Static IP for load balancer
+- Ultra-low latency TCP traffic
+- WebSocket/real-time features
+
+For Fundit HTTP API, ALB is sufficient. NLB would be useful for WebSocket real-time donation notifications.
+
+### 12.8 VPC & Security Groups (Network Isolation)
+
+This is your firewall / VPN equivalent on AWS.
+
+ALB Security Group (fundit-alb-sg):
+- HTTP  80   -> 0.0.0.0/0   (redirect to HTTPS)
+- HTTPS 443  -> 0.0.0.0/0   (public web)
+
+EC2 Security Group (fundit-ec2-sg):
+- TCP   5000 -> fundit-alb-sg  (only ALB can call API)
+- SSH   22   -> Your IP only   (admin access)
+
+RDS Security Group (fundit-rds-sg):
+- MySQL 3306 -> fundit-ec2-sg  (only app server can reach DB)
+
+NEVER open port 3306 to 0.0.0.0/0.
+
+### 12.9 ACM — Free SSL/TLS Certificate
+
+1. Certificate Manager -> Request certificate -> Public
+2. Domain: yourdomain.com and *.yourdomain.com
+3. Validation: DNS validation
+4. Click "Create records in Route 53" (auto-adds CNAME)
+5. Wait ~5 min for status: Issued
+6. Attach to ALB HTTPS listener
+
+### 12.10 Route 53 — DNS
+
+1. Route 53 -> Hosted zones -> Create
+2. Domain: yourdomain.com -> Public hosted zone
+3. Update domain registrar nameservers with Route 53 NS records
+
+DNS Records:
+| Name | Type | Value |
+|---|---|---|
+| yourdomain.com | A Alias | CloudFront frontend distribution |
+| api.yourdomain.com | A Alias | ALB DNS name |
+| www.yourdomain.com | CNAME | yourdomain.com |
+
+---
+
+## 13. Deploying the Frontend to S3 + CloudFront
+
+```bash
+cd frontend
+
+# Create production env
+echo "VITE_API_URL=https://api.yourdomain.com" > .env.production
+echo "VITE_RAZORPAY_KEY_ID=rzp_live_xxxxxxxxx" >> .env.production
+
+# Build
+npm run build
+# Output: frontend/dist/
+
+# Deploy to S3
+aws s3 sync dist/ s3://fundit-frontend-prod --delete
+
+# Invalidate CloudFront cache
+aws cloudfront create-invalidation \
+  --distribution-id YOUR_CF_DIST_ID \
+  --paths "/*"
+```
+
+---
+
+## 14. Deploying the Backend to EC2
+
+Option A — Manual:
+```bash
+ssh -i fundit-key.pem ubuntu@<EC2_IP>
+cd /home/ubuntu/FUNDIT
+git pull origin main
+cd backend && npm install --production
+pm2 restart fundit-api
+pm2 logs fundit-api --lines 50
+```
+
+Option B — Automatic via GitHub Actions (every push to main triggers deploy).
+
+Production .env on EC2:
+```dotenv
+NODE_ENV=production
+PORT=5000
+DB_HOST=fundit-db.xxxxxxxx.ap-south-1.rds.amazonaws.com
+DB_NAME=fundit_db
+DB_USER=admin
+DB_PASS=YourRDSPassword
+JWT_SECRET=<64-char random>
+COOKIE_SECRET=<64-char random>
+AWS_REGION=ap-south-1
+S3_BUCKET_NAME=fundit-uploads-prod
+CLOUDFRONT_URL=https://d2xxxxxxxx.cloudfront.net
+RAZORPAY_KEY_ID=rzp_live_xxxxxxxxx
+RAZORPAY_KEY_SECRET=your_live_secret
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_secret
+GOOGLE_CALLBACK_URL=https://api.yourdomain.com/api/auth/google/callback
+FRONTEND_URL=https://yourdomain.com
+```
+
+---
+
+## 15. Razorpay Production Integration
+
+Production checklist:
+- [ ] Complete Razorpay KYC / business verification
+- [ ] Switch to rzp_live_ keys in both backend and frontend .env
+- [ ] Configure webhook URL pointing to production API
+- [ ] Test with a real Rs.1 payment before launch
+- [ ] Verify HMAC webhook signature works
+
+Webhook verification (already in donationRoutes.js):
+```js
+const hmac = crypto.createHmac('sha256', RAZORPAY_WEBHOOK_SECRET);
+hmac.update(rawBody);
+const digest = hmac.digest('hex');
+if (digest !== req.headers['x-razorpay-signature']) {
+  return res.status(400).json({ error: 'Invalid signature' });
+}
+```
+
+---
+
+## 16. Environment Variable Quick Reference
+
+| Variable | Required | Default | Description |
 |---|---|---|---|
-| **Admin** | `admin@fundit.local` | `Admin@123` | Access `/admin` moderation page, close/delete campaigns, inspect moderation audit logs, view user list |
-| **Organizer** | `priya@example.com` | `User@123` | Access `/dashboard`, view created campaigns, upload receipts and expense reports with proof images |
-| **Donor** | `rahul@example.com` | `User@123` | Donate to campaigns, toggle anonymous donation, inspect donation history in `/dashboard` |
-| **User** | `ananya@example.com` | `User@123` | General user account |
+| NODE_ENV | Yes | development | development or production |
+| PORT | Yes | 5000 | Backend port |
+| DB_HOST | Yes | localhost | MySQL host |
+| DB_NAME | Yes | fundit_db | Database name |
+| DB_USER | Yes | fundit_user | MySQL username |
+| DB_PASS | Yes | — | MySQL password |
+| JWT_SECRET | Yes | — | 64+ char random string |
+| COOKIE_SECRET | Yes | — | Cookie signing secret |
+| S3_BUCKET_NAME | No | blank | Blank = local disk upload |
+| CLOUDFRONT_URL | No | blank | CDN base URL |
+| RAZORPAY_KEY_ID | No | blank | Blank = simulated payments |
+| RAZORPAY_KEY_SECRET | No | blank | Razorpay API secret |
+| RAZORPAY_WEBHOOK_SECRET | No | blank | Webhook HMAC verification |
+| GOOGLE_CLIENT_ID | No | blank | Google OAuth client ID |
+| GOOGLE_CLIENT_SECRET | No | blank | Google OAuth secret |
+| GOOGLE_CALLBACK_URL | No | — | OAuth callback URL |
+| FRONTEND_URL | Yes | http://localhost:5173 | For CORS + redirects |
 
 ---
 
-## Step 8: AWS Cloud Production Deployment Guide
+## 17. Troubleshooting & Common Errors
 
-### 8.1 AWS Infrastructure Plan
-- **AWS EC2 (Ubuntu 22.04 LTS)**: Runs Node.js API server and serves static frontend build via Nginx.
-- **AWS RDS MySQL**: Managed multi-AZ MySQL database.
-- **AWS S3 + CloudFront**: Media delivery with global edge caching.
+### ECONNREFUSED — Backend cannot connect to MySQL
 
----
-
-### 8.2 EC2 Server Setup
-1. Launch an EC2 instance:
-   - AMI: **Ubuntu Server 22.04 LTS**
-   - Instance Type: `t3.micro` or `t3.small`
-   - Security Group Inbound rules:
-     - Port 22 (SSH)
-     - Port 80 (HTTP)
-     - Port 443 (HTTPS)
-
-2. Connect via SSH:
-   ```bash
-   ssh -i your-key.pem ubuntu@your-ec2-ip
-   ```
-
-3. Install Node.js 20 & Git:
-   ```bash
-   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-   sudo apt-get install -y nodejs nginx git
-   sudo npm install -g pm2
-   ```
-
-4. Clone Repository & Setup:
-   ```bash
-   git clone https://github.com/Prashant-git16/FUNDIT.git
-   cd FUNDIT
-   npm run install:all
-
-   # Configure production .env
-   cp backend/.env.example backend/.env
-   nano backend/.env # Enter your RDS MySQL host, secrets, and AWS bucket
-
-   # Build frontend static files
-   cd frontend
-   npm run build
-   cd ..
-   ```
-
-5. Run Backend with PM2:
-   ```bash
-   cd backend
-   pm2 start index.js --name "fundit-backend"
-   pm2 startup
-   pm2 save
-   ```
-
-6. Configure Nginx Reverse Proxy (`/etc/nginx/sites-available/default`):
-   ```nginx
-   server {
-       listen 80;
-       server_name yourdomain.com www.yourdomain.com;
-
-       # Serve Frontend SPA
-       location / {
-           root /home/ubuntu/FUNDIT/frontend/dist;
-           index index.html;
-           try_files $uri $uri/ /index.html;
-       }
-
-       # Reverse proxy to Express API
-       location /api/ {
-           proxy_pass http://localhost:5000;
-           proxy_http_version 1.1;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection 'upgrade';
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-           proxy_set_header X-Forwarded-Proto $scheme;
-       }
-
-       # Proxy local uploads (if not using S3)
-       location /uploads/ {
-           proxy_pass http://localhost:5000;
-       }
-   }
-   ```
-   Restart Nginx:
-   ```bash
-   sudo nginx -t && sudo systemctl restart nginx
-   ```
-
-7. Install Free SSL with Certbot:
-   ```bash
-   sudo apt install -y certbot python3-certbot-nginx
-   sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
-   ```
-
----
-
-## Troubleshooting & Common Errors
-
-### 1. `EADDRINUSE: listen :::5000`
-**Cause**: Another process (or a previous Node background instance) is already using port 5000.  
-**Fix**:
-- **On Windows PowerShell**:
-  ```powershell
-  # Find PID using port 5000
-  Get-NetTCPConnection -LocalPort 5000 | Select-Object OwningProcess
-
-  # Kill the process (replace 12345 with the PID)
-  Stop-Process -Id 12345 -Force
-  ```
-- **Or one-liner in Command Prompt**:
-  ```cmd
-  for /f "tokens=5" %a in ('netstat -aon ^| findstr :5000') do taskkill /f /pid %a
-  ```
-
----
-
-### 2. `Access denied for user 'fundit_user'@'localhost'`
-**Cause**: Wrong password or user hasn't been granted permissions.  
-**Fix**:
-Log in as root and reset the password:
-```sql
-ALTER USER 'fundit_user'@'localhost' IDENTIFIED BY 'Fundit@123';
-GRANT ALL PRIVILEGES ON fundit_db.* TO 'fundit_user'@'localhost';
-FLUSH PRIVILEGES;
+```bash
+mysql -u root -p -e "SHOW DATABASES;"
+# Windows
+Get-Service MySQL80
+# Linux
+sudo systemctl status mysql
 ```
 
+### CORS Error in Browser
+
+Ensure FRONTEND_URL in backend .env exactly matches the URL your frontend is running on (including port number).
+
+### Port 5000 Already in Use
+
+```bash
+# Windows
+netstat -ano | findstr :5000
+taskkill /PID <PID> /F
+
+# Linux/Mac
+lsof -i :5000 && kill -9 <PID>
+```
+
+### Images Not Showing After Upload
+
+- Local mode: check backend/uploads/ folder exists and file is there
+- S3 mode: check CLOUDFRONT_URL starts with https:// and S3 bucket policy allows CloudFront OAC
+
+### EC2 Backend Not Responding
+
+```bash
+pm2 list                           # Check fundit-api status
+pm2 logs fundit-api --lines 100    # Check error logs
+sudo ufw status                    # Firewall status
+```
+
+### Razorpay Payment Fails in Production
+
+- Confirm you are using rzp_live_ keys (not rzp_test_)
+- Check webhook secret matches
+- Payment amount must be in paise (multiply Rs amount by 100)
+
+### Google OAuth Redirect Mismatch
+
+GOOGLE_CALLBACK_URL in .env must exactly match the Authorized Redirect URI in Google Cloud Console. Update both when going to production.
+
 ---
 
-### 3. `CORS: origin http://localhost:5174 is not allowed`
-**Cause**: Vite started on port 5174 because 5173 was occupied, but backend only had 5173 configured.  
-**Fix**:
-The backend's [`backend/index.js`](file:///c:/Users/hp/OneDrive/Desktop/progrram/FUNDIT/backend/index.js) has been updated to dynamically allow all `localhost` ports in development mode. No manual change is needed!
-
----
-
-### 4. Icons appearing small / low contrast
-**Fix**:
-The global design system in [`frontend/src/index.css`](file:///c:/Users/hp/OneDrive/Desktop/progrram/FUNDIT/frontend/src/index.css) has been scaled up with responsive root `rem` scaling, modern `.icon-box` components, glowing gradient badges, and larger card ratios. Everything is crisp and immediately visible at 100% zoom.
+Last updated: 2024 | Fundit — B.Tech CSE Capstone Project | github.com/Prashant-git16/FUNDIT

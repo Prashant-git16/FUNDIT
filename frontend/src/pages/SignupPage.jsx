@@ -8,6 +8,7 @@ export default function SignupPage() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +19,10 @@ export default function SignupPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (form.password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (form.password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
     setLoading(true);
     try {
       const { user } = await api.post('/api/auth/signup', form);
@@ -30,6 +34,22 @@ export default function SignupPage() {
       setLoading(false);
     }
   }
+
+  /* Password strength indicator */
+  function strengthLevel(pw) {
+    if (!pw) return 0;
+    let score = 0;
+    if (pw.length >= 8) score++;
+    if (pw.length >= 12) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    return score; // 0-5
+  }
+
+  const strength = strengthLevel(form.password);
+  const strengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong', 'Very Strong'][strength] || '';
+  const strengthColor = ['', '#ef4444', '#f59e0b', '#eab308', '#22c55e', '#16a34a'][strength] || '#e2e8f0';
 
   return (
     <div className="auth-page">
@@ -73,18 +93,54 @@ export default function SignupPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(min 8 characters)</span></label>
-            <input
-              type="password"
-              name="password"
-              id="signup-password"
-              className="form-input"
-              value={form.password}
-              onChange={handleChange}
-              required
-              minLength={8}
-              placeholder="••••••••"
-            />
+            <label className="form-label">
+              Password <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(min 8 characters)</span>
+            </label>
+            <div className="password-wrapper">
+              <input
+                type={showPw ? 'text' : 'password'}
+                name="password"
+                id="signup-password"
+                className="form-input"
+                value={form.password}
+                onChange={handleChange}
+                required
+                minLength={8}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                className="pw-toggle"
+                onClick={() => setShowPw((v) => !v)}
+                aria-label={showPw ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                {showPw ? '🙈' : '👁️'}
+              </button>
+            </div>
+
+            {/* Strength bar — shows once user starts typing */}
+            {form.password.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      style={{
+                        flex: 1,
+                        height: 4,
+                        borderRadius: 4,
+                        background: i <= strength ? strengthColor : '#e2e8f0',
+                        transition: 'background 0.3s',
+                      }}
+                    />
+                  ))}
+                </div>
+                <p style={{ fontSize: 'var(--text-xs)', color: strengthColor, marginTop: 4, fontWeight: 600 }}>
+                  {strengthLabel}
+                </p>
+              </div>
+            )}
           </div>
 
           <button type="submit" className="btn btn-primary btn-lg" id="signup-submit" disabled={loading}>
