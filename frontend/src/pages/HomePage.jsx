@@ -88,7 +88,8 @@ export default function HomePage() {
                 to={`/explore?category=${cat.id}`}
                 className="category-pill"
               >
-                {cat.icon} {cat.label}
+                <span className="category-pill__icon">{cat.icon}</span>
+                <span>{cat.label}</span>
               </Link>
             ))}
           </div>

@@ -107,7 +107,8 @@ export default function ExplorePage() {
             className={`category-pill${!category ? ' active' : ''}`}
             onClick={() => updateParam('category', '', true)}
           >
-            All
+            <span className="category-pill__icon">✨</span>
+            <span>All</span>
           </button>
           {CATEGORIES.map((cat) => (
             <button
@@ -115,7 +116,8 @@ export default function ExplorePage() {
               className={`category-pill${category === cat.id ? ' active' : ''}`}
               onClick={() => updateParam('category', cat.id, true)}
             >
-              {cat.icon} {cat.label}
+              <span className="category-pill__icon">{cat.icon}</span>
+              <span>{cat.label}</span>
             </button>
           ))}
         </div>

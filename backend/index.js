@@ -29,17 +29,21 @@ const PORT = process.env.PORT || 5000;
 // Helmet sets sensible security headers (X-Frame-Options, XSS protection, etc.)
 app.use(helmet());
 
-// CORS: allow only configured origins. In production this must be the CloudFront URL.
+// CORS: allow configured origins, and allow any localhost port in development
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((o) => o.trim());
 app.use(
   cors({
     origin(origin, callback) {
-      // Allow requests with no origin (server-to-server, Postman) or matching origins
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS: origin ${origin} is not allowed`));
+      // Allow requests with no origin (server-to-server, Postman)
+      if (!origin) return callback(null, true);
+      // In development mode, allow any localhost port
+      if (process.env.NODE_ENV !== 'production' && /^https?:\/\/localhost(:\d+)?$/.test(origin)) {
+        return callback(null, true);
       }
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      callback(new Error(`CORS: origin ${origin} is not allowed`));
     },
     credentials: true, // Required for HTTP-only cookies to be sent cross-origin
   })
