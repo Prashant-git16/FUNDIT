@@ -1,0 +1,38 @@
+{
+  "name": "fundit-backend",
+  "version": "1.0.0",
+  "description": "Fundit crowdfunding platform — Express/Node.js backend",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest --forceExit"
+  },
+  "keywords": [
+    "fundit",
+    "crowdfunding",
+    "express",
+    "nodejs"
+  ],
+  "author": "Prashant",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.0.0",
+    "bcrypt": "^5.1.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.0.0",
+    "express-validator": "^7.0.0",
+    "google-auth-library": "^9.0.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "multer": "^2.4.0",
+    "multer-s3": "^3.0.1",
+    "mysql2": "^3.0.0",
+    "razorpay": "^2.9.0",
+    "uuid": "^11.1.1"
+  }
+}
