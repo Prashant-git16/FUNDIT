@@ -24,11 +24,11 @@ export default function AdminPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function moderate(campaignId, action) {
-    if (!reason.trim()) { setMsg({ type: 'error', text: 'Please provide a reason.' }); return; }
+  async function moderate(campaignId, action, actionReason) {
+    const finalReason = actionReason || reason.trim() || `Administrative ${action} action`;
     try {
-      await api.post(`/api/admin/campaigns/${campaignId}/moderate`, { action, reason });
-      setMsg({ type: 'success', text: `Campaign ${action}d successfully.` });
+      await api.post(`/api/admin/campaigns/${campaignId}/moderate`, { action, reason: finalReason });
+      setMsg({ type: 'success', text: `Campaign ${action === 'delete' ? 'deleted' : 'closed'} successfully.` });
       setModerating(null);
       setReason('');
       const fresh = await api.get('/api/admin/campaigns');
@@ -91,38 +91,34 @@ export default function AdminPage() {
                     </td>
                     <td style={{ color: 'var(--text-muted)' }}>{formatDate(c.created_at)}</td>
                     <td>
-                      {c.status === 'active' && (
+                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        {c.status === 'active' && (
+                          <button
+                            className="btn btn-warning btn-sm"
+                            title="Close campaign from receiving donations"
+                            onClick={() => {
+                              if (confirm(`Close campaign "${c.title}"?`)) {
+                                moderate(c.id, 'close', 'Closed by administrator');
+                              }
+                            }}
+                          >
+                            Close
+                          </button>
+                        )}
                         <button
                           className="btn btn-danger btn-sm"
-                          onClick={() => setModerating(c.id)}
+                          title="Delete campaign"
+                          onClick={() => {
+                            if (confirm(`Permanently remove campaign "${c.title}"?`)) {
+                              moderate(c.id, 'delete', 'Deleted by administrator');
+                            }
+                          }}
                         >
-                          Moderate
+                          Delete
                         </button>
-                      )}
+                      </div>
                     </td>
                   </tr>
-                  {/* Inline moderation panel */}
-                  {moderating === c.id && (
-                    <tr key={`mod-${c.id}`}>
-                      <td colSpan={7} style={{ background: 'var(--bg-elevated)' }}>
-                        <div style={{ padding: 'var(--space-4)', display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                          <div className="form-group" style={{ flex: 1 }}>
-                            <label className="form-label">Reason for action</label>
-                            <input
-                              type="text"
-                              className="form-input"
-                              value={reason}
-                              onChange={(e) => setReason(e.target.value)}
-                              placeholder="Describe why you are taking this action"
-                            />
-                          </div>
-                          <button className="btn btn-danger btn-sm" onClick={() => moderate(c.id, 'close')}>Close</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => moderate(c.id, 'delete')}>Delete</button>
-                          <button className="btn btn-ghost btn-sm" onClick={() => setModerating(null)}>Cancel</button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                 </>
               ))}
             </tbody>

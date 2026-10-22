@@ -59,14 +59,24 @@ router.post(
       if (process.env.NODE_ENV !== 'production') {
         try {
           const [campaigns] = await pool.query(
-            "SELECT id, status, deadline FROM campaigns WHERE id = ? AND status = 'active'",
+            "SELECT id, status, deadline, target_amount, raised_amount FROM campaigns WHERE id = ? AND status = 'active'",
             [campaignId]
           );
           if (campaigns.length === 0) {
             return res.status(400).json({ message: 'Campaign is not accepting donations' });
           }
-          if (new Date(campaigns[0].deadline) < new Date()) {
+          const camp = campaigns[0];
+          if (new Date(camp.deadline) < new Date()) {
             return res.status(400).json({ message: 'This campaign has passed its deadline' });
+          }
+          const remaining = Math.max(0, parseFloat(camp.target_amount) - parseFloat(camp.raised_amount));
+          if (remaining <= 0) {
+            return res.status(400).json({ message: 'This campaign has already reached its goal! No more donations needed.' });
+          }
+          if (amount > remaining) {
+            return res.status(400).json({
+              message: `Donation cannot exceed the remaining goal of ₹${remaining.toLocaleString('en-IN')}`,
+            });
           }
           const fakeOrderId = `order_sim_${Date.now()}`;
           await pool.query(
@@ -93,7 +103,7 @@ router.post(
     try {
       // Verify the campaign exists, is active, and has not expired
       const [campaigns] = await pool.query(
-        "SELECT id, status, deadline FROM campaigns WHERE id = ? AND status = 'active'",
+        "SELECT id, status, deadline, target_amount, raised_amount FROM campaigns WHERE id = ? AND status = 'active'",
         [campaignId]
       );
       if (campaigns.length === 0) {
@@ -102,6 +112,15 @@ router.post(
       const campaign = campaigns[0];
       if (new Date(campaign.deadline) < new Date()) {
         return res.status(400).json({ message: 'This campaign has passed its deadline' });
+      }
+      const remaining = Math.max(0, parseFloat(campaign.target_amount) - parseFloat(campaign.raised_amount));
+      if (remaining <= 0) {
+        return res.status(400).json({ message: 'This campaign has already reached its goal! No more donations needed.' });
+      }
+      if (amount > remaining) {
+        return res.status(400).json({
+          message: `Donation cannot exceed the remaining goal of ₹${remaining.toLocaleString('en-IN')}`,
+        });
       }
 
       // Razorpay requires integer amounts in the smallest currency unit (paise = rupees × 100)

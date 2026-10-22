@@ -58,13 +58,14 @@ router.post(
   [
     param('id').isInt({ min: 1 }).toInt(),
     body('action').isIn(['close', 'delete']).withMessage("Action must be 'close' or 'delete'"),
-    body('reason').trim().isLength({ min: 5, max: 500 }).withMessage('A reason (5–500 chars) is required'),
+    body('reason').optional().trim(),
   ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ message: errors.array()[0].msg });
 
-    const { action, reason } = req.body;
+    const { action } = req.body;
+    const reason = (req.body.reason && req.body.reason.trim()) || `Administrative ${action} action`;
     const campaignId = req.params.id;
 
     try {

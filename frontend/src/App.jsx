@@ -38,9 +38,9 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Auth pages — full screen, no navbar */}
-          <Route path="/login"  element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
+          {/* Auth pages — now with shared navbar and footer */}
+          <Route path="/login"  element={<Layout><LoginPage /></Layout>} />
+          <Route path="/signup" element={<Layout><SignupPage /></Layout>} />
 
           {/* All other pages — with shared navbar and footer */}
           <Route path="/" element={

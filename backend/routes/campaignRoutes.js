@@ -332,4 +332,36 @@ router.post('/:id/close', authenticate, [param('id').isInt({ min: 1 }).toInt()],
   }
 });
 
+// ─── DELETE /api/campaigns/:id ──────────────────────────────────────────────
+router.delete('/:id', authenticate, [param('id').isInt({ min: 1 }).toInt()], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ message: 'Invalid campaign ID' });
+
+  try {
+    const [rows] = await pool.query("SELECT * FROM campaigns WHERE id = ? AND status != 'deleted'", [
+      req.params.id,
+    ]);
+    if (rows.length === 0) return res.status(404).json({ message: 'Campaign not found' });
+
+    const campaign = rows[0];
+    if (campaign.owner_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'You do not have permission to delete this campaign' });
+    }
+
+    await pool.query("UPDATE campaigns SET status = 'deleted' WHERE id = ?", [req.params.id]);
+
+    if (req.user.role === 'admin') {
+      await pool.query(
+        'INSERT INTO moderation_logs (admin_id, campaign_id, action, reason) VALUES (?, ?, ?, ?)',
+        [req.user.id, req.params.id, 'delete', 'Deleted by admin']
+      );
+    }
+
+    return res.json({ message: 'Campaign deleted successfully' });
+  } catch (err) {
+    console.error('[campaigns/delete]', err);
+    return res.status(500).json({ message: 'Could not delete campaign' });
+  }
+});
+
 module.exports = router;

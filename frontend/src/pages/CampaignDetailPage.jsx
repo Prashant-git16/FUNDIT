@@ -44,7 +44,9 @@ export default function CampaignDetailPage() {
 
   const { campaign, donors, expenses, totalExpenses, spendingPercent } = data;
   const pct = clampPercent(campaign.progressPercent);
-  const isExpiredOrClosed = campaign.status === 'expired' || campaign.status === 'closed';
+  const remainingGoal = Math.max(0, parseFloat(campaign.targetAmount) - parseFloat(campaign.raisedAmount));
+  const isFullyFunded = remainingGoal <= 0;
+  const isExpiredOrClosed = campaign.status === 'expired' || campaign.status === 'closed' || isFullyFunded;
   const isOwner = user?.id === campaign.owner?.id;
   const canDonate = user && !isExpiredOrClosed;
 
@@ -55,6 +57,13 @@ export default function CampaignDetailPage() {
     const amount = parseFloat(donationAmount);
     if (!amount || amount < 10) {
       setDonationMsg({ type: 'error', text: 'Minimum donation is ₹10' });
+      return;
+    }
+    if (amount > remainingGoal) {
+      setDonationMsg({
+        type: 'error',
+        text: `Donation cannot exceed the remaining goal of ${formatRupees(remainingGoal)}`,
+      });
       return;
     }
     setDonating(true);
@@ -147,6 +156,16 @@ export default function CampaignDetailPage() {
     }
   }
 
+  async function handleDeleteCampaign() {
+    if (!confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) return;
+    try {
+      await api.delete(`/api/campaigns/${campaign.id}`);
+      navigate('/explore');
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
   // ─── Add expense ──────────────────────────────────────────────────────────
 
   async function handleAddExpense(e) {
@@ -191,9 +210,13 @@ export default function CampaignDetailPage() {
 
             <div style={{ marginTop: 'var(--space-6)', display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
               <span className="badge badge-info">{getCategoryLabel(campaign.category)}</span>
-              {isExpiredOrClosed
-                ? <span className="badge badge-error">{campaign.status === 'closed' ? 'Campaign Closed' : 'Campaign Ended'}</span>
-                : <span className="badge badge-success">Active</span>}
+              {isFullyFunded ? (
+                <span className="badge badge-success">🎉 Goal Reached</span>
+              ) : isExpiredOrClosed ? (
+                <span className="badge badge-error">{campaign.status === 'closed' ? 'Campaign Closed' : 'Campaign Ended'}</span>
+              ) : (
+                <span className="badge badge-success">Active</span>
+              )}
             </div>
 
             <h1 style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: 'var(--space-4)', lineHeight: 1.3 }}>
@@ -211,14 +234,25 @@ export default function CampaignDetailPage() {
             <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>About this campaign</h2>
             <p className="campaign-detail__description">{campaign.description}</p>
 
-            {/* Owner actions */}
-            {isOwner && campaign.status === 'active' && (
+            {/* Owner & Admin actions */}
+            {(isOwner || user?.role === 'admin') && (
               <div style={{ marginTop: 'var(--space-8)', display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-                <Link to={`/campaign/${campaign.id}/edit`} className="btn btn-outline btn-sm">✏️ Edit Campaign</Link>
-                <button className="btn btn-ghost btn-sm" onClick={() => setShowExpenseForm((v) => !v)}>
-                  📋 Add Expense Report
+                {isOwner && campaign.status === 'active' && (
+                  <Link to={`/campaign/${campaign.id}/edit`} className="btn btn-outline btn-sm">✏️ Edit Campaign</Link>
+                )}
+                {isOwner && campaign.status === 'active' && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => setShowExpenseForm((v) => !v)}>
+                    📋 Add Expense Report
+                  </button>
+                )}
+                {campaign.status === 'active' && (
+                  <button className="btn btn-warning btn-sm" onClick={handleCloseCampaign}>
+                    🔒 Close Campaign
+                  </button>
+                )}
+                <button className="btn btn-danger btn-sm" onClick={handleDeleteCampaign}>
+                  🗑️ Delete Campaign
                 </button>
-                <button className="btn btn-danger btn-sm" onClick={handleCloseCampaign}>Close Campaign</button>
               </div>
             )}
 
@@ -321,11 +355,15 @@ export default function CampaignDetailPage() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', margin: 'var(--space-4) 0', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
                 <span>⏰ {daysLeft(campaign.deadline)}</span>
-                <span>🎯 {formatRupees(parseFloat(campaign.targetAmount) - parseFloat(campaign.raisedAmount))} to go</span>
+                <span>🎯 {isFullyFunded ? 'Goal reached!' : `${formatRupees(remainingGoal)} to go`}</span>
               </div>
 
               {/* Donation form */}
-              {isExpiredOrClosed ? (
+              {isFullyFunded ? (
+                <div className="alert alert-success" style={{ marginTop: 'var(--space-2)' }}>
+                  🎉 <strong>Goal Achieved!</strong> This campaign has reached 100% of its funding goal. Thank you to all supporters!
+                </div>
+              ) : isExpiredOrClosed ? (
                 <div className="alert alert-info" style={{ marginTop: 'var(--space-2)' }}>
                   This campaign is no longer accepting donations.
                 </div>
@@ -337,20 +375,24 @@ export default function CampaignDetailPage() {
                     </div>
                   )}
                   <div className="form-group" style={{ marginBottom: 'var(--space-3)' }}>
-                    <label className="form-label">Donation Amount (₹)</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-1)' }}>
+                      <label className="form-label" style={{ margin: 0 }}>Donation Amount (₹)</label>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Max: {formatRupees(remainingGoal)}</span>
+                    </div>
                     <input
                       type="number"
                       className="form-input"
-                      placeholder="e.g. 500"
+                      placeholder={`Min ₹10 · Max ₹${Math.floor(remainingGoal).toLocaleString()}`}
                       value={donationAmount}
                       onChange={(e) => setDonationAmount(e.target.value)}
                       min={10}
+                      max={remainingGoal}
                     />
                   </div>
 
-                  {/* Quick amount buttons */}
+                  {/* Quick amount buttons capped at remainingGoal */}
                   <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
-                    {[100, 500, 1000, 5000].map((a) => (
+                    {[100, 500, 1000, 5000].filter((a) => a <= remainingGoal).map((a) => (
                       <button
                         key={a}
                         type="button"
@@ -361,6 +403,14 @@ export default function CampaignDetailPage() {
                         ₹{a.toLocaleString()}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      style={{ border: '1px solid var(--color-primary)', color: 'var(--color-primary)', fontWeight: 600 }}
+                      onClick={() => setDonationAmount(String(Math.floor(remainingGoal)))}
+                    >
+                      Donate Remaining ({formatRupees(remainingGoal)})
+                    </button>
                   </div>
 
                   <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>

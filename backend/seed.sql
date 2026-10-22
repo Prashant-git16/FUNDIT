@@ -19,10 +19,10 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- To generate a real hash: node -e "const b=require('bcrypt');b.hash('Password1!',12).then(console.log)"
 
 INSERT INTO users (id, name, email, password_hash, role) VALUES
-(1, 'Admin User',     'admin@fundit.in',   '$2b$12$T5lJSrJOLvMmXuDOwW97/ObPx1Ym3sAiJVQ6w2r9aSnFbIZLRIWRi', 'admin'),
-(2, 'Priya Sharma',   'priya@example.com', '$2b$12$T5lJSrJOLvMmXuDOwW97/ObPx1Ym3sAiJVQ6w2r9aSnFbIZLRIWRi', 'user'),
-(3, 'Rahul Verma',    'rahul@example.com', '$2b$12$T5lJSrJOLvMmXuDOwW97/ObPx1Ym3sAiJVQ6w2r9aSnFbIZLRIWRi', 'user'),
-(4, 'Aisha Khan',     'aisha@example.com', '$2b$12$T5lJSrJOLvMmXuDOwW97/ObPx1Ym3sAiJVQ6w2r9aSnFbIZLRIWRi', 'user');
+(1, 'Admin User',     'admin@fundit.in',   '$2b$12$l8a8xc4e330MPKjjRLnAsOfLrUcBGiMc4u394LmF1Ek8RdUivowbm', 'admin'),
+(2, 'Priya Sharma',   'priya@example.com', '$2b$12$l8a8xc4e330MPKjjRLnAsOfLrUcBGiMc4u394LmF1Ek8RdUivowbm', 'user'),
+(3, 'Rahul Verma',    'rahul@example.com', '$2b$12$l8a8xc4e330MPKjjRLnAsOfLrUcBGiMc4u394LmF1Ek8RdUivowbm', 'user'),
+(4, 'Aisha Khan',     'aisha@example.com', '$2b$12$l8a8xc4e330MPKjjRLnAsOfLrUcBGiMc4u394LmF1Ek8RdUivowbm', 'user');
 
 -- ─── Campaigns ───────────────────────────────────────────────────────────────
 
