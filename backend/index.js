@@ -82,10 +82,12 @@ app.get('/api/health', (_req, res) => {
 // ─── Public app config ────────────────────────────────────────────────────────
 // Exposes public identifiers (Google Client ID, Razorpay Key ID, S3 provider status)
 // Strictly NO private secrets (no secret keys, database credentials, or JWT secrets).
+const { canUseS3 } = require('./upload');
+
 app.get('/api/config', (_req, res) => {
   const hasRazorpay = !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
   const hasGoogle = !!process.env.GOOGLE_CLIENT_ID;
-  const hasS3 = !!(process.env.S3_BUCKET_NAME && (process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION));
+  const hasS3 = canUseS3();
 
   res.json({
     googleClientId: process.env.GOOGLE_CLIENT_ID || null,
@@ -94,8 +96,8 @@ app.get('/api/config', (_req, res) => {
     hasRazorpay,
     storage: {
       provider: hasS3 ? 's3' : 'local',
-      bucket: process.env.S3_BUCKET_NAME || null,
-      region: process.env.AWS_REGION || 'us-east-1',
+      bucket: hasS3 ? (process.env.S3_BUCKET_NAME || null) : null,
+      region: hasS3 ? (process.env.AWS_REGION || 'us-east-1') : null,
     },
   });
 });
