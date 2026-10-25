@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function SignupPage() {
   const { login } = useAuth();
@@ -147,6 +148,10 @@ export default function SignupPage() {
             {loading ? 'Creating account…' : 'Create Account'}
           </button>
         </form>
+
+        <div className="auth-divider">or</div>
+
+        <GoogleSignInButton onError={(msg) => setError(msg)} from="/dashboard" />
 
         <p style={{ textAlign: 'center', marginTop: 'var(--space-6)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
           By creating an account you agree to our{' '}

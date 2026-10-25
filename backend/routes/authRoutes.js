@@ -16,7 +16,9 @@ const { pool } = require('../db');
 const { signToken, setTokenCookie, clearTokenCookie, authenticate } = require('../auth');
 
 const router = express.Router();
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+function getGoogleClient() {
+  return new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+}
 
 // Rate-limit login and signup to slow down brute-force attempts
 const authLimiter = rateLimit({
@@ -144,7 +146,7 @@ router.post('/google', authLimiter, async (req, res) => {
 
   try {
     // Verify the token with Google's servers. The audience MUST match our client ID.
-    const ticket = await googleClient.verifyIdToken({
+    const ticket = await getGoogleClient().verifyIdToken({
       idToken,
       audience: process.env.GOOGLE_CLIENT_ID,
     });

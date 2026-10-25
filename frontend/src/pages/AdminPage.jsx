@@ -10,15 +10,18 @@ export default function AdminPage() {
   const [moderating, setModerating] = useState(null);
   const [reason, setReason] = useState('');
   const [msg, setMsg] = useState(null);
+  const [appConfig, setAppConfig] = useState(null);
 
   useEffect(() => {
     Promise.all([
       api.get('/api/admin/campaigns'),
       api.get('/api/admin/users'),
+      api.get('/api/config').catch(() => null),
     ])
-      .then(([camData, usrData]) => {
+      .then(([camData, usrData, cfg]) => {
         setCampaigns(camData.campaigns);
         setUsers(usrData.users);
+        if (cfg) setAppConfig(cfg);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -48,6 +51,46 @@ export default function AdminPage() {
       {msg && (
         <div className={`alert alert-${msg.type}`} style={{ marginBottom: 'var(--space-5)' }}>
           {msg.text}
+        </div>
+      )}
+
+      {/* Cloud & Third-Party Integrations Status Card */}
+      {appConfig && (
+        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-5)', marginBottom: 'var(--space-8)' }}>
+          <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 700, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            ⚡ System & Cloud Service Integrations
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-4)' }}>
+            <div style={{ padding: 'var(--space-3)', background: 'var(--bg-base)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Google OAuth</div>
+              <div style={{ fontWeight: 600, marginTop: 'var(--space-1)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                {appConfig.hasGoogleAuth ? '🟢 Active & Configured' : '⚪ Not Configured'}
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 'var(--space-1)', wordBreak: 'break-all' }}>
+                {appConfig.googleClientId ? `${appConfig.googleClientId.slice(0, 24)}…` : 'Add GOOGLE_CLIENT_ID in .env'}
+              </div>
+            </div>
+
+            <div style={{ padding: 'var(--space-3)', background: 'var(--bg-base)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Razorpay Gateway</div>
+              <div style={{ fontWeight: 600, marginTop: 'var(--space-1)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                {appConfig.hasRazorpay ? '🟢 Live / Test Key Active' : '🟡 Dev Simulated Mode'}
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
+                {appConfig.razorpayKeyId ? `Key: ${appConfig.razorpayKeyId}` : 'Add RAZORPAY_KEY_ID in .env'}
+              </div>
+            </div>
+
+            <div style={{ padding: 'var(--space-3)', background: 'var(--bg-base)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Image Storage</div>
+              <div style={{ fontWeight: 600, marginTop: 'var(--space-1)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                {appConfig.storage?.provider === 's3' ? '🟢 AWS S3 Connected' : '💾 Local Disk Fallback'}
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
+                {appConfig.storage?.bucket ? `${appConfig.storage.bucket} (${appConfig.storage.region})` : 'backend/uploads/'}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

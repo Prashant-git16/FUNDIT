@@ -29,6 +29,13 @@ export default function CampaignDetailPage() {
   const [expenseImg, setExpenseImg] = useState(null);
   const [submittingExpense, setSubmittingExpense] = useState(false);
   const [expenseMsg, setExpenseMsg] = useState(null);
+  const [appConfig, setAppConfig] = useState(null);
+
+  useEffect(() => {
+    api.get('/api/config')
+      .then(setAppConfig)
+      .catch((err) => console.warn('[config] error:', err.message));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -432,9 +439,15 @@ export default function CampaignDetailPage() {
                       Login to Donate
                     </Link>
                   )}
-                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center', marginTop: 'var(--space-3)' }}>
-                    🔒 Secured by Razorpay · Test mode
-                  </p>
+                  {appConfig?.hasRazorpay ? (
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-primary-dark)', textAlign: 'center', marginTop: 'var(--space-3)', fontWeight: 600 }}>
+                      🔒 Secured by Razorpay Gateway · Active ({appConfig.razorpayKeyId ? `${appConfig.razorpayKeyId.slice(0, 12)}…` : 'Test Mode'})
+                    </p>
+                  ) : (
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center', marginTop: 'var(--space-3)' }}>
+                      🔒 Secured by Razorpay · Demo simulated mode
+                    </p>
+                  )}
                 </>
               )}
             </div>

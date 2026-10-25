@@ -19,6 +19,13 @@ export default function CreateCampaignPage() {
     title: '', category: 'healthcare', description: '',
     targetAmount: '', deadline: '', image: null,
   });
+  const [appConfig, setAppConfig] = useState(null);
+
+  useEffect(() => {
+    api.get('/api/config')
+      .then(setAppConfig)
+      .catch((err) => console.warn('[config] error:', err.message));
+  }, []);
 
   // Load existing data when editing
   useEffect(() => {
@@ -176,7 +183,16 @@ export default function CreateCampaignPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Campaign Image {isEdit ? '(upload to change)' : '*'}</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-1)' }}>
+              <label className="form-label" style={{ margin: 0 }}>Campaign Image {isEdit ? '(upload to change)' : '*'}</label>
+              {appConfig && (
+                <span style={{ fontSize: 'var(--text-xs)', color: appConfig.storage?.provider === 's3' ? 'var(--color-primary)' : 'var(--text-muted)', fontWeight: 600 }}>
+                  {appConfig.storage?.provider === 's3'
+                    ? `☁️ AWS S3 (${appConfig.storage.bucket} · ${appConfig.storage.region})`
+                    : '💾 Local Disk Storage'}
+                </span>
+              )}
+            </div>
             <input
               type="file"
               name="image"

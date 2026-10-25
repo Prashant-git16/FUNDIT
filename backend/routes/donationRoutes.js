@@ -23,15 +23,15 @@ const { authenticate } = require('../auth');
 
 const router = express.Router();
 
-// Instantiate Razorpay only when credentials are available
-let razorpay = null;
-if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-  razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-  });
-} else {
-  console.warn('[donations] Razorpay credentials not set — donation flow will return 503');
+// Dynamic Razorpay client helper — loads currently active credentials from environment
+function getRazorpayClient() {
+  if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+    return new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+  return null;
 }
 
 // ─── POST /api/donations/create-order ────────────────────────────────────────
@@ -52,6 +52,7 @@ router.post(
     if (!errors.isEmpty()) return res.status(400).json({ message: errors.array()[0].msg });
 
     const { campaignId, amount, isAnonymous = false } = req.body;
+    const razorpay = getRazorpayClient();
 
     if (!razorpay) {
       // In development mode without Razorpay credentials, support local simulated donation
@@ -170,6 +171,7 @@ router.post(
     if (!errors.isEmpty()) return res.status(400).json({ message: errors.array()[0].msg });
 
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+    const razorpay = getRazorpayClient();
     const isSimulated = !razorpay && process.env.NODE_ENV !== 'production' && razorpayOrderId.startsWith('order_sim_');
 
     if (!razorpay && !isSimulated) {

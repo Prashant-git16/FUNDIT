@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -95,9 +96,7 @@ export default function LoginPage() {
 
         <div className="auth-divider">or</div>
 
-        <p style={{ textAlign: 'center', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-          Google sign-in is available once configured. See SETUP_GUIDE.md.
-        </p>
+        <GoogleSignInButton onError={(msg) => setError(msg)} from={from} />
 
         <p style={{ textAlign: 'center', marginTop: 'var(--space-6)', fontSize: 'var(--text-sm)' }}>
           Don't have an account?{' '}
