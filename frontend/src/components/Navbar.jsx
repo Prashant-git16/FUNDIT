@@ -44,19 +44,19 @@ export default function Navbar() {
         <div className="navbar__actions">
           {user ? (
             <>
-              <Link to="/dashboard" className="btn btn-ghost btn-sm" style={{ color: 'rgba(255,255,255,.8)' }}>
-                👤 {user.name.split(' ')[0]}
+              <Link to="/dashboard" className="btn btn-ghost btn-sm navbar__user-btn">
+                <span>👤</span> {user.name.split(' ')[0]}
               </Link>
               <Link to="/create-campaign" className="btn btn-accent btn-sm">
                 + Start Fundraiser
               </Link>
-              <button onClick={handleLogout} className="btn btn-ghost btn-sm" style={{ color: 'rgba(255,255,255,.5)' }}>
+              <button onClick={handleLogout} className="btn btn-ghost btn-sm navbar__logout-btn">
                 Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="btn btn-ghost btn-sm" style={{ color: 'rgba(255,255,255,.8)' }}>
+              <Link to="/login" className="btn btn-ghost btn-sm navbar__login-btn">
                 Login
               </Link>
               <Link to="/signup" className="btn btn-primary btn-sm">

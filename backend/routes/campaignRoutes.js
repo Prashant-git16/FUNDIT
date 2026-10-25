@@ -8,10 +8,11 @@
  * POST   /api/campaigns/:id/close  — Close campaign (owner or admin)
  */
 const express = require('express');
+const path = require('path');
 const { body, query, param, validationResult } = require('express-validator');
 const { pool } = require('../db');
 const { authenticate, optionalAuth, requireRole } = require('../auth');
-const { imageUpload, buildImageUrl } = require('../upload');
+const { imageUpload, campaignUpload, buildImageUrl } = require('../upload');
 const { CATEGORY_IDS } = require('../categories');
 
 const router = express.Router();
@@ -25,6 +26,23 @@ function formatCampaign(row) {
   const progressPct = Math.min(Math.round((raised / target) * 100), 100);
   const isExpired = row.deadline ? new Date(row.deadline) < new Date() : false;
 
+  let proofDocs = [];
+  if (row.proof_documents) {
+    try {
+      const parsed = typeof row.proof_documents === 'string' ? JSON.parse(row.proof_documents) : row.proof_documents;
+      if (Array.isArray(parsed)) {
+        proofDocs = parsed.map((key) => ({
+          key,
+          url: buildImageUrl(key),
+          name: path.basename(key),
+          isPdf: key.toLowerCase().endsWith('.pdf'),
+        }));
+      }
+    } catch (e) {
+      console.warn('[campaign/proof-parse]', e.message);
+    }
+  }
+
   return {
     id: row.id,
     title: row.title,
@@ -36,11 +54,18 @@ function formatCampaign(row) {
     imageUrl: buildImageUrl(row.image_key),
     deadline: row.deadline,
     status: isExpired && row.status === 'active' ? 'expired' : row.status,
+    govIdType: row.gov_id_type || null,
+    govIdNumber: row.gov_id_number || null,
+    phone: row.phone || null,
+    address: row.address || null,
+    proofDocuments: proofDocs,
+    adminRemarks: row.admin_remarks || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     owner: {
       id: row.owner_id,
       name: row.owner_name,
+      email: row.owner_email,
     },
   };
 }
@@ -65,8 +90,8 @@ router.get(
     const offset = (page - 1) * limit;
     const { category, search, sort } = req.query;
 
-    // Build WHERE conditions dynamically with parameterized placeholders
-    const conditions = ["c.status != 'deleted'"];
+    // Public browse only shows approved active campaigns
+    const conditions = ["c.status = 'active'"];
     const params = [];
 
     if (category) {
@@ -119,21 +144,53 @@ router.get(
   }
 );
 
+// ─── GET /api/campaigns/my/list ───────────────────────────────────────────────
+// Returns all campaigns owned by the authenticated user regardless of status
+router.get('/my/list', authenticate, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT c.*, u.name AS owner_name, u.email AS owner_email
+       FROM campaigns c
+       JOIN users u ON c.owner_id = u.id
+       WHERE c.owner_id = ? AND c.status != 'deleted'
+       ORDER BY c.created_at DESC`,
+      [req.user.id]
+    );
+
+    return res.json({
+      campaigns: rows.map(formatCampaign),
+    });
+  } catch (err) {
+    console.error('[campaigns/my/list]', err);
+    return res.status(500).json({ message: 'Could not fetch your campaigns' });
+  }
+});
+
 // ─── GET /api/campaigns/:id ───────────────────────────────────────────────────
 
-router.get('/:id', [param('id').isInt({ min: 1 }).toInt()], async (req, res) => {
+router.get('/:id', optionalAuth, [param('id').isInt({ min: 1 }).toInt()], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ message: 'Invalid campaign ID' });
 
   try {
     const [rows] = await pool.query(
-      `SELECT c.*, u.name AS owner_name
+      `SELECT c.*, u.name AS owner_name, u.email AS owner_email
        FROM campaigns c
        JOIN users u ON c.owner_id = u.id
        WHERE c.id = ? AND c.status != 'deleted'`,
       [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ message: 'Campaign not found' });
+
+    const cRow = rows[0];
+    const isPublicStatus = ['active', 'closed', 'expired'].includes(cRow.status);
+    const isAuthorized = req.user && (req.user.id === cRow.owner_id || req.user.role === 'admin');
+
+    if (!isPublicStatus && !isAuthorized) {
+      return res.status(403).json({
+        message: 'This campaign is currently pending review by our moderation team and is not publicly visible yet.',
+      });
+    }
 
     // Load recent donors (public view — no email, no anonymous identity)
     const [donors] = await pool.query(
@@ -188,12 +245,31 @@ router.get('/:id', [param('id').isInt({ min: 1 }).toInt()], async (req, res) => 
   }
 });
 
+// ─── GET /api/campaigns/my/list ───────────────────────────────────────────────
+// Authenticated user's campaigns with full statuses (pending, review, active, etc.)
+router.get('/my/list', authenticate, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT c.*, u.name AS owner_name, u.email AS owner_email
+       FROM campaigns c
+       JOIN users u ON c.owner_id = u.id
+       WHERE c.owner_id = ? AND c.status != 'deleted'
+       ORDER BY c.created_at DESC`,
+      [req.user.id]
+    );
+    return res.json({ campaigns: rows.map(formatCampaign) });
+  } catch (err) {
+    console.error('[campaigns/my-list]', err);
+    return res.status(500).json({ message: 'Could not load your campaigns' });
+  }
+});
+
 // ─── POST /api/campaigns ──────────────────────────────────────────────────────
 
 router.post(
   '/',
   authenticate,
-  imageUpload('campaigns'),
+  campaignUpload(),
   [
     body('title').trim().isLength({ min: 5, max: 200 }).withMessage('Title must be 5–200 characters'),
     body('category').isIn(CATEGORY_IDS).withMessage('Invalid category'),
@@ -209,6 +285,10 @@ router.post(
         if (new Date(val) <= new Date()) throw new Error('Deadline must be in the future');
         return true;
       }),
+    body('govIdType').trim().isLength({ min: 2, max: 50 }).withMessage('Valid Government ID Type is required (e.g. Aadhaar, PAN)'),
+    body('govIdNumber').trim().isLength({ min: 4, max: 100 }).withMessage('Valid Government ID Number is required'),
+    body('phone').trim().isLength({ min: 10, max: 15 }).withMessage('Valid 10-digit mobile number is required'),
+    body('address').trim().isLength({ min: 5, max: 500 }).withMessage('Full address is required'),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -216,26 +296,52 @@ router.post(
       return res.status(400).json({ message: errors.array()[0].msg });
     }
 
-    const { title, category, description, targetAmount, deadline } = req.body;
-    // S3 key is set by multer-s3; null when S3 is not configured
-    const imageKey = req.file ? (req.file.key || null) : null;
+    const { title, category, description, targetAmount, deadline, govIdType, govIdNumber, phone, address } = req.body;
+    
+    // Main cover image is required on creation
+    const imageKey = req.files?.image?.[0]?.key || null;
+    if (!imageKey) {
+      return res.status(400).json({ message: 'A main campaign front cover image is required' });
+    }
+
+    // 2-3 optional proof documents or images
+    const proofFiles = req.files?.proofDocuments || [];
+    const proofDocs = proofFiles.map((f) => f.key);
 
     try {
+      // New campaigns default to 'pending' for admin review
       const [result] = await pool.query(
         `INSERT INTO campaigns
-           (owner_id, title, category, description, target_amount, image_key, deadline, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
-        [req.user.id, title, category, description, targetAmount, imageKey, deadline]
+           (owner_id, title, category, description, target_amount, image_key, deadline,
+            gov_id_type, gov_id_number, phone, address, proof_documents, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        [
+          req.user.id,
+          title,
+          category,
+          description,
+          targetAmount,
+          imageKey,
+          deadline,
+          govIdType,
+          govIdNumber,
+          phone,
+          address,
+          JSON.stringify(proofDocs),
+        ]
       );
 
       const [rows] = await pool.query(
-        `SELECT c.*, u.name AS owner_name
+        `SELECT c.*, u.name AS owner_name, u.email AS owner_email
          FROM campaigns c JOIN users u ON c.owner_id = u.id
          WHERE c.id = ?`,
         [result.insertId]
       );
 
-      return res.status(201).json({ campaign: formatCampaign(rows[0]) });
+      return res.status(201).json({
+        campaign: formatCampaign(rows[0]),
+        message: 'Campaign submitted successfully! It is now under review by platform administrators.',
+      });
     } catch (err) {
       console.error('[campaigns/create]', err);
       return res.status(500).json({ message: 'Could not create campaign' });

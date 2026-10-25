@@ -55,7 +55,7 @@ export default function CampaignDetailPage() {
   const isFullyFunded = remainingGoal <= 0;
   const isExpiredOrClosed = campaign.status === 'expired' || campaign.status === 'closed' || isFullyFunded;
   const isOwner = user?.id === campaign.owner?.id;
-  const canDonate = user && !isExpiredOrClosed;
+  const canDonate = user && campaign.status === 'active' && !isExpiredOrClosed;
 
   // ─── Razorpay donation flow ───────────────────────────────────────────────
 
@@ -200,6 +200,34 @@ export default function CampaignDetailPage() {
   return (
     <div className="campaign-detail">
       <div className="container">
+        {/* Status notification banner for pending/review/rejected */}
+        {campaign.status === 'pending' && (
+          <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', color: '#92400e', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4) var(--space-6)', marginBottom: 'var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            <span style={{ fontSize: '1.5rem' }}>⏳</span>
+            <div>
+              <strong>Pending Moderator Verification:</strong> This campaign is currently under review by our admin team along with the submitted government ID and proof documents. It will be published publicly upon approval.
+            </div>
+          </div>
+        )}
+
+        {campaign.status === 'review' && (
+          <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', color: '#1e40af', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4) var(--space-6)', marginBottom: 'var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+            <div>
+              <strong>Action Needed (Under Review):</strong> {campaign.adminRemarks || 'The moderator has requested additional verification or documentation.'}
+            </div>
+          </div>
+        )}
+
+        {campaign.status === 'rejected' && (
+          <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', color: '#991b1b', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4) var(--space-6)', marginBottom: 'var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            <span style={{ fontSize: '1.5rem' }}>❌</span>
+            <div>
+              <strong>Campaign Rejected:</strong> {campaign.adminRemarks || 'This campaign was not approved by moderation.'}
+            </div>
+          </div>
+        )}
+
         {/* Breadcrumb */}
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--space-5)' }}>
           <Link to="/explore">Explore</Link> › {campaign.title}
@@ -217,12 +245,17 @@ export default function CampaignDetailPage() {
 
             <div style={{ marginTop: 'var(--space-6)', display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
               <span className="badge badge-info">{getCategoryLabel(campaign.category)}</span>
-              {isFullyFunded ? (
-                <span className="badge badge-success">🎉 Goal Reached</span>
-              ) : isExpiredOrClosed ? (
-                <span className="badge badge-error">{campaign.status === 'closed' ? 'Campaign Closed' : 'Campaign Ended'}</span>
-              ) : (
-                <span className="badge badge-success">Active</span>
+              {campaign.status === 'pending' && <span className="badge badge-warning">⏳ Pending Approval</span>}
+              {campaign.status === 'review' && <span className="badge badge-info" style={{ background: '#e0f2fe', color: '#0369a1' }}>⚠️ Under Review</span>}
+              {campaign.status === 'rejected' && <span className="badge badge-error">❌ Rejected</span>}
+              {campaign.status === 'active' && (
+                isFullyFunded ? (
+                  <span className="badge badge-success">🎉 Goal Reached</span>
+                ) : isExpiredOrClosed ? (
+                  <span className="badge badge-error">{campaign.status === 'closed' ? 'Campaign Closed' : 'Campaign Ended'}</span>
+                ) : (
+                  <span className="badge badge-success">● Active</span>
+                )
               )}
             </div>
 
@@ -230,16 +263,102 @@ export default function CampaignDetailPage() {
               {campaign.title}
             </h1>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 'var(--space-3) 0', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-3) 0', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', flexWrap: 'wrap' }}>
               <span>by <strong>{campaign.owner?.name}</strong></span>
               <span>·</span>
               <span>Created {formatDate(campaign.createdAt)}</span>
+              {campaign.govIdType && (
+                <>
+                  <span>·</span>
+                  <span style={{ color: '#047857', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    🛡️ KYC Verified Organizer
+                  </span>
+                </>
+              )}
             </div>
 
             <hr style={{ border: 'none', borderTop: '1px solid var(--border-light)', margin: 'var(--space-6) 0' }} />
 
             <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>About this campaign</h2>
-            <p className="campaign-detail__description">{campaign.description}</p>
+            <p className="campaign-detail__description" style={{ whiteSpace: 'pre-line' }}>{campaign.description}</p>
+
+            {/* Organizer Trust & KYC Card */}
+            <div style={{ marginTop: 'var(--space-8)', background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)', border: '1.5px solid #a7f3d0', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                <div style={{ width: 42, height: 42, borderRadius: '50%', background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem' }}>
+                  🛡️
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#065f46', margin: 0 }}>
+                    Verified Organizer & Trust Check
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#047857' }}>
+                    Government Identity & Contact verified by Fundit Moderation Team
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-3)', fontSize: '0.9rem', color: '#065f46', marginTop: 'var(--space-3)', background: 'rgba(255,255,255,0.7)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+                <div>
+                  <strong>Organizer:</strong> {campaign.owner?.name}
+                </div>
+                {campaign.phone && (
+                  <div>
+                    <strong>Mobile Contact:</strong> {campaign.phone.slice(0, 3)}****{campaign.phone.slice(-3)}
+                  </div>
+                )}
+                {campaign.govIdType && (
+                  <div>
+                    <strong>Gov ID:</strong> {campaign.govIdType.toUpperCase()} (Verified)
+                  </div>
+                )}
+                {campaign.address && (
+                  <div>
+                    <strong>Location:</strong> {campaign.address}
+                  </div>
+                )}
+              </div>
+
+              {/* Proof Documents List */}
+              {campaign.proofDocuments && campaign.proofDocuments.length > 0 && (
+                <div style={{ marginTop: 'var(--space-5)' }}>
+                  <div style={{ fontWeight: 700, color: '#065f46', fontSize: '0.95rem', marginBottom: 'var(--space-2)' }}>
+                    📄 Supporting Proof Documents ({campaign.proofDocuments.length})
+                  </div>
+                  <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+                    {campaign.proofDocuments.map((doc, idx) => (
+                      <a
+                        key={idx}
+                        href={doc.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: '#fff',
+                          border: '1px solid #a7f3d0',
+                          padding: '8px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          fontSize: '0.85rem',
+                          color: '#047857',
+                          fontWeight: 600,
+                          textDecoration: 'none',
+                          boxShadow: 'var(--shadow-sm)',
+                        }}
+                      >
+                        <span>{doc.isPdf ? '📑' : '🖼️'}</span>
+                        <span>{doc.name}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#059669' }}>↗</span>
+                      </a>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: 'var(--space-2)' }}>
+                    ✓ Submitted to moderation for authenticity & legitimacy verification
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Owner & Admin actions */}
             {(isOwner || user?.role === 'admin') && (
@@ -366,7 +485,11 @@ export default function CampaignDetailPage() {
               </div>
 
               {/* Donation form */}
-              {isFullyFunded ? (
+              {campaign.status !== 'active' ? (
+                <div className="alert alert-warning" style={{ marginTop: 'var(--space-2)' }}>
+                  ⏳ <strong>Verification In Progress:</strong> This campaign is currently under review by our admin team. Donations will be activated immediately once verified.
+                </div>
+              ) : isFullyFunded ? (
                 <div className="alert alert-success" style={{ marginTop: 'var(--space-2)' }}>
                   🎉 <strong>Goal Achieved!</strong> This campaign has reached 100% of its funding goal. Thank you to all supporters!
                 </div>

@@ -35,20 +35,31 @@ export default function HomePage() {
       <section className="hero">
         <div className="container hero__inner">
           <div>
+            <div className="hero__badge">
+              <span className="hero__badge-icon">🌿</span>
+              <span>100% Verified Charity & Community Crowdfunding</span>
+            </div>
+
             <h1 className="hero__title">
-              Fund the causes<br />
-              <em>you believe in</em>
+              Giving hope, healing lives<br />
+              <em>one cause at a time</em>
             </h1>
             <p className="hero__subtitle">
-              Fundit is India's transparent crowdfunding platform. Start a campaign for healthcare, education, disaster relief, and more — or support one today.
+              Fundit connects compassionate hearts with genuine people in need. Every campaign is reviewed with government ID and proof documents before going live.
             </p>
             <div className="hero__cta">
-              <Link to="/explore" className="btn btn-accent btn-lg">
-                🔍 Explore Campaigns
+              <Link to="/explore" className="btn btn-primary btn-lg">
+                💚 Explore Causes
               </Link>
-              <Link to="/create-campaign" className="btn btn-outline btn-lg" style={{ color: '#fff', borderColor: 'rgba(255,255,255,.4)' }}>
+              <Link to="/create-campaign" className="btn btn-outline btn-lg">
                 + Start a Fundraiser
               </Link>
+            </div>
+
+            <div className="hero__trust-strip">
+              <span className="trust-pill">🛡️ KYC Verified Organizers</span>
+              <span className="trust-pill">⚡ Instant UPI & Cards</span>
+              <span className="trust-pill">📋 Transparent Expense Bills</span>
             </div>
 
             <div className="hero__stats">
@@ -63,13 +74,28 @@ export default function HomePage() {
 
           {/* Right side visual card stack */}
           <div className="hero__visual" aria-hidden="true">
-            <div className="card" style={{ padding: 'var(--space-4)', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.1)', color: '#fff' }}>
-              <div style={{ fontSize: 'var(--text-sm)', opacity: 0.6, marginBottom: 'var(--space-2)' }}>Latest campaign</div>
-              <div style={{ fontWeight: 700 }}>Free Eye Surgery for Children</div>
-              <div style={{ marginTop: 'var(--space-3)', background: 'rgba(255,255,255,.15)', borderRadius: '999px', height: 6 }}>
-                <div style={{ width: '71%', height: '100%', background: 'var(--color-accent-light)', borderRadius: '999px' }} />
+            <div className="card hero__card-preview">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+                <span className="badge badge-success" style={{ fontSize: '0.8rem' }}>🛡️ Verified Medical Cause</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Urgent Care</span>
               </div>
-              <div style={{ fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)', opacity: 0.6 }}>71% funded · ₹1,78,000 raised</div>
+              <div style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--text-primary)', lineHeight: 1.35 }}>
+                Emergency Cardiac Surgery for 6-Year-Old Aarav
+              </div>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: 'var(--space-2) 0' }}>
+                Organized with verified hospital estimate from AIIMS Delhi.
+              </p>
+              <div style={{ marginTop: 'var(--space-4)', background: 'var(--bg-elevated)', borderRadius: '999px', height: 8 }}>
+                <div style={{ width: '74%', height: '100%', background: 'linear-gradient(90deg, #10b981, #059669)', borderRadius: '999px' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginTop: 'var(--space-2)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                <span style={{ color: 'var(--color-primary)' }}>₹3,70,000 raised</span>
+                <span>74% of ₹5,00,000</span>
+              </div>
+              <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                <span>👥 142 generous donors</span>
+                <span style={{ color: '#059669', fontWeight: 700 }}>✓ Admin Verified</span>
+              </div>
             </div>
           </div>
         </div>

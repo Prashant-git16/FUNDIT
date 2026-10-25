@@ -12,13 +12,17 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 CREATE TABLE IF NOT EXISTS users (
   id            INT          UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name          VARCHAR(100) NOT NULL,
-  email         VARCHAR(255) NOT NULL,
-  password_hash VARCHAR(255) NULL,           -- NULL for Google-only accounts
-  google_id     VARCHAR(255) NULL,           -- NULL for password-only accounts
-  role          ENUM('user', 'admin') NOT NULL DEFAULT 'user',
-  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  name              VARCHAR(100) NOT NULL,
+  email             VARCHAR(255) NOT NULL,
+  password_hash     VARCHAR(255) NULL,           -- NULL for Google-only accounts
+  google_id         VARCHAR(255) NULL,           -- NULL for password-only accounts
+  role              ENUM('user', 'admin') NOT NULL DEFAULT 'user',
+  phone             VARCHAR(20)  NULL,
+  occupation        VARCHAR(100) NULL,
+  address           TEXT         NULL,
+  profile_completed TINYINT(1)   NOT NULL DEFAULT 0,
+  created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   UNIQUE KEY uq_users_email    (email),
   UNIQUE KEY uq_users_google   (google_id)
@@ -27,19 +31,25 @@ CREATE TABLE IF NOT EXISTS users (
 -- ─── campaigns ───────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS campaigns (
-  id             INT           UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  owner_id       INT           UNSIGNED NOT NULL,
-  title          VARCHAR(200)  NOT NULL,
-  category       VARCHAR(50)   NOT NULL,
-  description    TEXT          NOT NULL,
+  id              INT           UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  owner_id        INT           UNSIGNED NOT NULL,
+  title           VARCHAR(200)  NOT NULL,
+  category        VARCHAR(50)   NOT NULL,
+  description     TEXT          NOT NULL,
   -- DECIMAL(12,2): stores exact rupee amounts up to 9,999,999,999.99
-  target_amount  DECIMAL(12,2) NOT NULL,
-  raised_amount  DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-  image_key      VARCHAR(500)  NULL,         -- S3 object key; NULL until an image is uploaded
-  deadline       DATE          NOT NULL,
-  status         ENUM('active', 'closed', 'deleted') NOT NULL DEFAULT 'active',
-  created_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  target_amount   DECIMAL(12,2) NOT NULL,
+  raised_amount   DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  image_key       VARCHAR(500)  NULL,         -- Cover image key / URL
+  deadline        DATE          NOT NULL,
+  gov_id_type     VARCHAR(50)   NULL,         -- Aadhaar, PAN, Voter ID, Passport, etc.
+  gov_id_number   VARCHAR(100)  NULL,
+  phone           VARCHAR(20)   NULL,         -- Campaign organizer verified mobile
+  address         TEXT          NULL,         -- Organizer address
+  proof_documents JSON          NULL,         -- JSON array of 2-3 proof document keys
+  status          ENUM('pending', 'review', 'active', 'rejected', 'closed', 'deleted') NOT NULL DEFAULT 'pending',
+  admin_remarks   TEXT          NULL,         -- Moderation remarks from admin
+  created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   CONSTRAINT fk_campaigns_owner FOREIGN KEY (owner_id) REFERENCES users(id),
   INDEX idx_campaigns_category (category),

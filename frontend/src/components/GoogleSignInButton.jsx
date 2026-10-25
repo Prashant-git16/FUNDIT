@@ -74,7 +74,11 @@ export default function GoogleSignInButton({ onError, from = '/dashboard' }) {
     try {
       const data = await api.post('/api/auth/google', { idToken: response.credential });
       login(data.user);
-      navigate(from, { replace: true });
+      if (data.needsProfileCompletion) {
+        navigate('/complete-profile', { replace: true, state: { from } });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       console.error('[google-auth] Sign-in error:', err);
       if (onError) onError(err.message || 'Google sign-in failed');

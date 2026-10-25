@@ -33,7 +33,17 @@ const authLimiter = rateLimit({
 
 /** Return a safe user object (no password hash, no internal secrets). */
 function safeUser(row) {
-  return { id: row.id, name: row.name, email: row.email, role: row.role, createdAt: row.created_at };
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    phone: row.phone || null,
+    occupation: row.occupation || null,
+    address: row.address || null,
+    profileCompleted: Boolean(row.profile_completed),
+    createdAt: row.created_at,
+  };
 }
 
 // ─── POST /api/auth/signup ────────────────────────────────────────────────────
@@ -167,12 +177,13 @@ router.post('/google', authLimiter, async (req, res) => {
       const user = byGoogle[0];
       const token = signToken(user);
       setTokenCookie(res, token);
-      return res.json({ user: safeUser(user) });
+      const needsProfile = !user.profile_completed || !user.phone || !user.occupation;
+      return res.json({ user: safeUser(user), needsProfileCompletion: needsProfile });
     }
 
     // Check for an existing password-based account with the same email
     const [byEmail] = await pool.query(
-      'SELECT id, name, email, role, created_at, google_id FROM users WHERE email = ?',
+      'SELECT id, name, email, role, phone, occupation, address, profile_completed, created_at, google_id FROM users WHERE email = ?',
       [email]
     );
 
@@ -186,18 +197,19 @@ router.post('/google', authLimiter, async (req, res) => {
       await pool.query('UPDATE users SET google_id = ? WHERE id = ?', [googleId, existing.id]);
       const token = signToken(existing);
       setTokenCookie(res, token);
-      return res.json({ user: safeUser(existing) });
+      const needsProfile = !existing.profile_completed || !existing.phone || !existing.occupation;
+      return res.json({ user: safeUser(existing), needsProfileCompletion: needsProfile });
     }
 
-    // New user — create account
+    // New user — create account (defaults profile_completed to 0)
     const [result] = await pool.query(
-      'INSERT INTO users (name, email, google_id, role) VALUES (?, ?, ?, ?)',
+      'INSERT INTO users (name, email, google_id, role, profile_completed) VALUES (?, ?, ?, ?, 0)',
       [name, email, googleId, 'user']
     );
-    const newUser = { id: result.insertId, name, email, role: 'user', created_at: new Date() };
+    const newUser = { id: result.insertId, name, email, role: 'user', profile_completed: 0, created_at: new Date() };
     const token = signToken(newUser);
     setTokenCookie(res, token);
-    return res.status(201).json({ user: safeUser(newUser) });
+    return res.status(201).json({ user: safeUser(newUser), needsProfileCompletion: true });
   } catch (err) {
     console.error('[auth/google]', err);
     if (err.message && err.message.includes('Token used too late')) {
@@ -212,7 +224,7 @@ router.post('/google', authLimiter, async (req, res) => {
 router.get('/me', authenticate, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, email, role, created_at FROM users WHERE id = ?',
+      'SELECT id, name, email, role, phone, occupation, address, profile_completed, created_at FROM users WHERE id = ?',
       [req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
@@ -222,6 +234,44 @@ router.get('/me', authenticate, async (req, res) => {
     return res.status(500).json({ message: 'Could not fetch user information' });
   }
 });
+
+// ─── PUT /api/auth/profile ────────────────────────────────────────────────────
+// Complete or update user profile (Name, Mobile Number, Occupation, Address)
+
+router.put(
+  '/profile',
+  authenticate,
+  [
+    body('name').trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2–100 characters'),
+    body('phone').trim().isLength({ min: 10, max: 15 }).withMessage('Valid 10-digit mobile number is required'),
+    body('occupation').trim().isLength({ min: 2, max: 100 }).withMessage('Occupation is required'),
+    body('address').optional().trim(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ message: errors.array()[0].msg });
+
+    const { name, phone, occupation, address } = req.body;
+
+    try {
+      await pool.query(
+        `UPDATE users
+         SET name = ?, phone = ?, occupation = ?, address = ?, profile_completed = 1
+         WHERE id = ?`,
+        [name, phone, occupation, address || null, req.user.id]
+      );
+
+      const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+      return res.json({
+        user: safeUser(rows[0]),
+        message: 'Profile updated successfully!',
+      });
+    } catch (err) {
+      console.error('[auth/profile]', err);
+      return res.status(500).json({ message: 'Could not update profile' });
+    }
+  }
+);
 
 // ─── POST /api/auth/logout ────────────────────────────────────────────────────
 

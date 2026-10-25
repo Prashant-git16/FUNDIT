@@ -1,111 +1,159 @@
 /**
- * upload.js — Multer configuration for multipart image uploads.
+ * upload.js — Resilient Multer configuration for file and image uploads.
  *
- * In production, images are piped directly to AWS S3 using multer-s3.
- * When AWS credentials / bucket are not configured (local dev without S3),
- * the middleware falls back to in-memory storage and the route handler must
- * handle the file.buffer manually (or the feature is marked unavailable).
+ * Supports AWS S3 when valid credentials and bucket are configured in .env.
+ * Automatically and seamlessly falls back to local disk storage (backend/uploads/)
+ * when AWS is not configured or if local development is active.
  *
  * Security decisions:
- * - Only JPEG, PNG, and WebP are accepted (checked by mimetype AND magic bytes via
- *   the fileFilter callback).
- * - File size is capped at 5 MB.
- * - The S3 key is generated from a UUID, never from the original filename,
- *   to prevent path traversal and key collisions.
+ * - Cover images: JPEG, PNG, WebP only (max 5 MB).
+ * - Proof documents: JPEG, PNG, WebP, PDF (max 8 MB each, up to 3 files).
+ * - S3 keys and local file names are generated from UUIDs to prevent path traversal.
  */
 const multer = require('multer');
 const multerS3 = require('multer-s3');
 const { S3Client } = require('@aws-sdk/client-s3');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const fs = require('fs');
 
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_DOC_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_DOC_SIZE = 8 * 1024 * 1024;   // 8 MB
 
-/** Reusable file filter — rejects anything that is not an allowed image type. */
-function imageFileFilter(_req, file, cb) {
-  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only JPEG, PNG, and WebP images are accepted'), false);
-  }
+/**
+ * Check whether AWS S3 can be used reliably.
+ * Requires bucket, region, AND explicit credentials in .env (or IAM role in production).
+ * This prevents the AWS SDK from picking up broken/stale system credentials.
+ */
+function canUseS3() {
+  const bucket = process.env.S3_BUCKET_NAME;
+  const region = process.env.AWS_REGION;
+  const hasKeys = Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+  const useIamRole = process.env.NODE_ENV === 'production' && process.env.AWS_USE_IAM_ROLE === 'true';
+
+  return Boolean(bucket && region && (hasKeys || useIamRole));
 }
 
 /**
- * Build an S3-backed multer instance for the given folder prefix.
- * Returns null if AWS is not configured, so callers can degrade gracefully.
+ * Build S3 Client with explicit credentials if provided.
  */
-function createS3Uploader(folder) {
-  const bucketName = process.env.S3_BUCKET_NAME;
-  const region = process.env.AWS_REGION;
+function getS3Client() {
+  const region = process.env.AWS_REGION || 'us-east-1';
+  const config = { region };
 
-  if (!bucketName || !region) {
-    console.warn('[upload] S3 not configured — image uploads will be unavailable');
-    return null;
+  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    config.credentials = {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID.trim(),
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY.trim(),
+    };
   }
 
-  const s3 = new S3Client({ region });
+  return new S3Client(config);
+}
 
-  return multer({
-    storage: multerS3({
-      s3,
-      bucket: bucketName,
-      contentType: multerS3.AUTO_CONTENT_TYPE,
-      // Generate a UUID-based key so original filenames never reach S3
-      key(_req, file, cb) {
-        const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-        cb(null, `${folder}/${uuidv4()}${ext}`);
-      },
-    }),
-    fileFilter: imageFileFilter,
-    limits: { fileSize: MAX_FILE_SIZE_BYTES },
+/**
+ * Build S3-backed storage engine.
+ */
+function createS3Storage(folder) {
+  const s3 = getS3Client();
+  const bucket = process.env.S3_BUCKET_NAME;
+
+  return multerS3({
+    s3,
+    bucket,
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key(_req, file, cb) {
+      const ext = path.extname(file.originalname).toLowerCase() || (file.mimetype === 'application/pdf' ? '.pdf' : '.jpg');
+      cb(null, `${folder}/${uuidv4()}${ext}`);
+    },
   });
 }
 
-const fs = require('fs');
-
 /**
- * Build a local disk multer uploader (for local dev without S3).
- * Files are stored in backend/uploads/<folder>/ and file.key is populated
- * identically to multer-s3 so route handlers remain completely cloud-agnostic.
+ * Build local disk storage engine (always reliable fallback).
  */
-function createLocalUploader(folder) {
+function createLocalStorage(folder) {
   const uploadDir = path.join(__dirname, 'uploads', folder);
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
 
-  return multer({
-    storage: multer.diskStorage({
-      destination(_req, _file, cb) {
-        cb(null, uploadDir);
-      },
-      filename(_req, file, cb) {
-        const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-        const filename = `${uuidv4()}${ext}`;
-        file.key = `${folder}/${filename}`; // Match S3 key format
-        cb(null, filename);
-      },
-    }),
-    fileFilter: imageFileFilter,
-    limits: { fileSize: MAX_FILE_SIZE_BYTES },
+  return multer.diskStorage({
+    destination(_req, _file, cb) {
+      cb(null, uploadDir);
+    },
+    filename(_req, file, cb) {
+      const ext = path.extname(file.originalname).toLowerCase() || (file.mimetype === 'application/pdf' ? '.pdf' : '.jpg');
+      const filename = `${uuidv4()}${ext}`;
+      file.key = `${folder}/${filename}`; // Match S3 key format for clean abstraction
+      cb(null, filename);
+    },
   });
 }
 
 /**
- * Return a single-field multer middleware for the given folder.
- * Uses S3 when configured; falls back to local disk storage for local dev.
+ * File filter for campaigns: accepts images for cover, and images/PDFs for proof documents.
  */
-function imageUpload(folder = 'campaigns') {
-  const s3Uploader = createS3Uploader(folder);
-  return s3Uploader ? s3Uploader.single('image') : createLocalUploader(folder).single('image');
+function campaignFileFilter(_req, file, cb) {
+  if (file.fieldname === 'image') {
+    if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Campaign cover image must be a JPEG, PNG, or WebP file'));
+    }
+  } else if (file.fieldname === 'proofDocuments') {
+    if (ALLOWED_DOC_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Proof documents must be JPEG, PNG, WebP, or PDF files'));
+    }
+  } else {
+    cb(null, true);
+  }
 }
 
 /**
- * Build the public delivery URL for a stored image.
- * 1. Returns direct URL if image_key is already a complete URL (e.g. Unsplash seed data)
- * 2. In production, images are served through CloudFront or direct S3
- * 3. In local dev without AWS, serves via local /uploads endpoint
+ * Single-image uploader (for receipts, avatars, etc.)
+ */
+function imageUpload(folder = 'campaigns') {
+  const storage = canUseS3() ? createS3Storage(folder) : createLocalStorage(folder);
+  return multer({
+    storage,
+    fileFilter(req, file, cb) {
+      if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only JPEG, PNG, and WebP images are accepted'), false);
+      }
+    },
+    limits: { fileSize: MAX_IMAGE_SIZE },
+  }).single('image');
+}
+
+/**
+ * Multi-field uploader for campaign creation & editing:
+ * - 'image': 1 main cover image
+ * - 'proofDocuments': up to 3 proof documents/images (PDF, JPG, PNG)
+ */
+function campaignUpload() {
+  const storage = canUseS3() ? createS3Storage('campaigns') : createLocalStorage('campaigns');
+  return multer({
+    storage,
+    fileFilter: campaignFileFilter,
+    limits: {
+      fileSize: MAX_DOC_SIZE,
+      files: 4, // 1 cover + 3 proof docs
+    },
+  }).fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'proofDocuments', maxCount: 3 },
+  ]);
+}
+
+/**
+ * Build the public delivery URL for a stored image or document.
  */
 function buildImageUrl(s3Key) {
   if (!s3Key) return null;
@@ -114,13 +162,22 @@ function buildImageUrl(s3Key) {
   }
   const cdnDomain = process.env.CLOUDFRONT_DOMAIN;
   if (cdnDomain) return `${cdnDomain}/${s3Key}`;
-  const bucket = process.env.S3_BUCKET_NAME;
-  const region = process.env.AWS_REGION || 'ap-south-1';
-  if (bucket) return `https://${bucket}.s3.${region}.amazonaws.com/${s3Key}`;
 
-  // Local dev fallback
+  // If S3 is active
+  if (canUseS3()) {
+    const bucket = process.env.S3_BUCKET_NAME;
+    const region = process.env.AWS_REGION || 'us-east-1';
+    return `https://${bucket}.s3.${region}.amazonaws.com/${s3Key}`;
+  }
+
+  // Local disk dev fallback
   const port = process.env.PORT || 5000;
   return `http://localhost:${port}/uploads/${s3Key}`;
 }
 
-module.exports = { imageUpload, buildImageUrl };
+module.exports = {
+  imageUpload,
+  campaignUpload,
+  buildImageUrl,
+  canUseS3,
+};

@@ -10,6 +10,7 @@ import ExplorePage from './pages/ExplorePage';
 import CampaignDetailPage from './pages/CampaignDetailPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import CompleteProfilePage from './pages/CompleteProfilePage';
 import DashboardPage from './pages/DashboardPage';
 import CreateCampaignPage from './pages/CreateCampaignPage';
 import AdminPage from './pages/AdminPage';
@@ -41,6 +42,13 @@ export default function App() {
           {/* Auth pages — now with shared navbar and footer */}
           <Route path="/login"  element={<Layout><LoginPage /></Layout>} />
           <Route path="/signup" element={<Layout><SignupPage /></Layout>} />
+          <Route path="/complete-profile" element={
+            <Layout>
+              <ProtectedRoute>
+                <CompleteProfilePage />
+              </ProtectedRoute>
+            </Layout>
+          } />
 
           {/* All other pages — with shared navbar and footer */}
           <Route path="/" element={
