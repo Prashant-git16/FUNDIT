@@ -49,10 +49,10 @@ export default function HomePage() {
             </p>
             <div className="hero__cta">
               <Link to="/explore" className="btn btn-primary btn-lg">
-                💚 Explore Causes
+                💚 Explore Campaigns
               </Link>
               <Link to="/create-campaign" className="btn btn-outline btn-lg">
-                + Start a Fundraiser
+                + Start a Fundraiser 
               </Link>
             </div>
 

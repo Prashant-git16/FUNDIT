@@ -26,18 +26,24 @@ const PORT = process.env.PORT || 5000;
 
 // ─── Security middleware ────────────────────────────────────────────────────────
 
-// Helmet sets sensible security headers (X-Frame-Options, XSS protection, etc.)
-app.use(helmet());
+// Helmet sets security headers. We configure same-origin-allow-popups so Google OAuth
+// and Razorpay payment modals can safely communicate with the parent window.
+app.use(
+  helmet({
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allows uploaded images to load across origins
+  })
+);
 
-// CORS: allow configured origins, and allow any localhost port in development
+// CORS: allow configured origins, and allow any localhost/127.0.0.1 port in development
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((o) => o.trim());
 app.use(
   cors({
     origin(origin, callback) {
-      // Allow requests with no origin (server-to-server, Postman)
+      // Allow requests with no origin (server-to-server, curl, Postman)
       if (!origin) return callback(null, true);
-      // In development mode, allow any localhost port
-      if (process.env.NODE_ENV !== 'production' && /^https?:\/\/localhost(:\d+)?$/.test(origin)) {
+      // In development mode, allow any localhost or 127.0.0.1 port
+      if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
         return callback(null, true);
       }
       if (allowedOrigins.includes(origin)) {

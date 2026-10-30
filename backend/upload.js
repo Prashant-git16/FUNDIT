@@ -154,25 +154,36 @@ function campaignUpload() {
 
 /**
  * Build the public delivery URL for a stored image or document.
+ * - When AWS S3 is active: routes via CloudFront CDN (if configured) or direct S3 bucket URL.
+ * - When local storage is active: routes via local Express static server (/uploads).
  */
 function buildImageUrl(s3Key) {
   if (!s3Key) return null;
   if (s3Key.startsWith('http://') || s3Key.startsWith('https://')) {
     return s3Key;
   }
-  const cdnDomain = process.env.CLOUDFRONT_DOMAIN;
-  if (cdnDomain) return `${cdnDomain}/${s3Key}`;
 
-  // If S3 is active
+  const cleanKey = String(s3Key).replace(/^\/+/, '');
+
+  // S3 / CloudFront delivery (only when S3 storage is genuinely configured and active)
   if (canUseS3()) {
+    const cdnDomain = process.env.CLOUDFRONT_DOMAIN;
+    if (cdnDomain && cdnDomain.trim()) {
+      let domain = cdnDomain.trim().replace(/\/+$/, '');
+      if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+        domain = `https://${domain}`;
+      }
+      return `${domain}/${cleanKey}`;
+    }
+
     const bucket = process.env.S3_BUCKET_NAME;
     const region = process.env.AWS_REGION || 'us-east-1';
-    return `https://${bucket}.s3.${region}.amazonaws.com/${s3Key}`;
+    return `https://${bucket}.s3.${region}.amazonaws.com/${cleanKey}`;
   }
 
-  // Local disk dev fallback
+  // Local disk dev fallback (serves directly from backend static /uploads folder)
   const port = process.env.PORT || 5000;
-  return `http://localhost:${port}/uploads/${s3Key}`;
+  return `http://localhost:${port}/uploads/${cleanKey}`;
 }
 
 module.exports = {

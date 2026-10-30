@@ -25,7 +25,7 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const isProfileIncomplete = !user.phone || !user.occupation || !user.address;
+  const isProfileIncomplete = user && (!user.phone || !user.occupation || !user.address);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -52,12 +52,12 @@ export default function DashboardPage() {
           <h1 className="dashboard__name" style={{ margin: 0 }}>
             Welcome back, {user?.name?.split(' ')[0] || 'Friend'}! 🌿
           </h1>
-          {user.role === 'admin' && (
+          {user?.role === 'admin' && (
             <span className="badge badge-info" style={{ fontSize: '0.8rem' }}>🛡️ Administrator</span>
           )}
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginTop: 'var(--space-1)' }}>
-          {user.email} {user.phone ? `· 📞 ${user.phone}` : ''} {user.occupation ? `· 💼 ${user.occupation}` : ''}
+          {user?.email} {user?.phone ? `· 📞 ${user.phone}` : ''} {user?.occupation ? `· 💼 ${user.occupation}` : ''}
         </p>
       </div>
 

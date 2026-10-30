@@ -42,6 +42,8 @@ export default function GoogleSignInButton({ onError, from = '/dashboard' }) {
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: handleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
         });
 
         buttonRef.current.innerHTML = '';
@@ -60,12 +62,19 @@ export default function GoogleSignInButton({ onError, from = '/dashboard' }) {
     if (window.google?.accounts?.id) {
       initGoogleBtn();
     } else {
-      script.addEventListener('load', initGoogleBtn);
+      // Check every 100ms for up to 3 seconds in case script is loading in head
+      const interval = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(interval);
+          initGoogleBtn();
+        }
+      }, 100);
+      const timer = setTimeout(() => clearInterval(interval), 3000);
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timer);
+      };
     }
-
-    return () => {
-      if (script) script.removeEventListener('load', initGoogleBtn);
-    };
   }, [clientId]);
 
   async function handleCredentialResponse(response) {

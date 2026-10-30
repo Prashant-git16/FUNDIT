@@ -299,14 +299,14 @@ router.post(
     const { title, category, description, targetAmount, deadline, govIdType, govIdNumber, phone, address } = req.body;
     
     // Main cover image is required on creation
-    const imageKey = req.files?.image?.[0]?.key || null;
+    const imageKey = req.files?.image?.[0]?.key || (req.files?.image?.[0]?.filename ? `campaigns/${req.files.image[0].filename}` : null);
     if (!imageKey) {
       return res.status(400).json({ message: 'A main campaign front cover image is required' });
     }
 
     // 2-3 optional proof documents or images
     const proofFiles = req.files?.proofDocuments || [];
-    const proofDocs = proofFiles.map((f) => f.key);
+    const proofDocs = proofFiles.map((f) => f.key || (f.filename ? `campaigns/${f.filename}` : null)).filter(Boolean);
 
     try {
       // New campaigns default to 'pending' for admin review
@@ -385,7 +385,7 @@ router.patch(
       }
 
       const { title, description, targetAmount, deadline } = req.body;
-      const imageKey = req.file ? (req.file.key || null) : null;
+      const imageKey = req.file ? (req.file.key || (req.file.filename ? `campaigns/${req.file.filename}` : null)) : null;
 
       // Only update provided fields
       const updates = [];

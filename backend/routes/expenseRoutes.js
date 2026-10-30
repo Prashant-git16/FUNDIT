@@ -56,7 +56,7 @@ router.post(
 
     const campaignId = req.params.campaignId;
     const { amount, description } = req.body;
-    const imageKey = req.file ? (req.file.key || null) : null;
+    const imageKey = req.file ? (req.file.key || (req.file.filename ? `expenses/${req.file.filename}` : null)) : null;
 
     try {
       // Verify the authenticated user owns this campaign
