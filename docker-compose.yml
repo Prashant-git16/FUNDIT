@@ -1,0 +1,74 @@
+services:
+  # ─── MySQL Database Service ───────────────────────────────────────────────
+  # In local Docker Compose or single-VM deployments, this runs MySQL 8.0 with persistent storage.
+  # (In AWS Cloud Production, you point DB_HOST to AWS RDS MySQL 8.0 instead).
+  mysql:
+    image: mysql:8.0
+    container_name: fundit-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootsecret}
+      MYSQL_DATABASE: ${DB_NAME:-fundit_db}
+      MYSQL_USER: ${DB_USER:-fundit_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-fundit_pass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootsecret}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Node.js Express Backend Service ──────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fundit-backend
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-fundit_user}
+      DB_PASSWORD: ${DB_PASSWORD:-fundit_pass}
+      DB_NAME: ${DB_NAME:-fundit_db}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+      AWS_REGION: ${AWS_REGION}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      AWS_CLOUDFRONT_URL: ${AWS_CLOUDFRONT_URL}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    ports:
+      - "5000:5000"
+    volumes:
+      - backend_uploads:/app/uploads
+
+  # ─── React / Nginx Frontend Service ───────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fundit-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  mysql_data:
+    driver: local
+  backend_uploads:
+    driver: local

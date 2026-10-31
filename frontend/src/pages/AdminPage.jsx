@@ -41,8 +41,8 @@ export default function AdminPage() {
     if (!actionModal) return;
 
     const { campaignId, action } = actionModal;
-    if ((action === 'reject' || action === 'review') && !actionReason.trim()) {
-      alert(`Please enter a remark explaining why you are putting this campaign in ${action}.`);
+    if ((action === 'reject' || action === 'review' || action === 'remark') && !actionReason.trim()) {
+      alert(`Please enter a remark or message for the organizer.`);
       return;
     }
 
@@ -53,7 +53,14 @@ export default function AdminPage() {
         reason: actionReason.trim() || undefined,
       });
 
-      setMsg({ type: 'success', text: res.message || `Campaign ${action}d successfully.` });
+      const successNotice =
+        action === 'approve'
+          ? '✅ Campaign approved and published! It is now live on the homepage.'
+          : action === 'remark'
+          ? '💬 Remark sent to the organizer successfully.'
+          : res.message || `Campaign ${action}d successfully.`;
+
+      setMsg({ type: 'success', text: successNotice });
       setActionModal(null);
       setActionReason('');
       setInspectCampaign(null);
@@ -289,7 +296,7 @@ export default function AdminPage() {
 
                     <td>
                       <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                        {/* Quick View */}
+                        {/* Quick View / Inspect */}
                         <button
                           className="btn btn-ghost btn-sm"
                           style={{ border: '1px solid var(--border-default)' }}
@@ -298,47 +305,78 @@ export default function AdminPage() {
                           👁️ Inspect
                         </button>
 
-                        {/* Approval workflow buttons */}
-                        {c.status !== 'active' && (
+                        {/* Pending or Review: Admin can Approve, Request Proof, Reject */}
+                        {(c.status === 'pending' || c.status === 'review') && (
+                          <>
+                            <button
+                              className="btn btn-primary btn-sm"
+                              title="Approve and publish to homepage"
+                              onClick={() => setActionModal({ campaignId: c.id, action: 'approve', title: c.title })}
+                            >
+                              ✅ Approve
+                            </button>
+                            <button
+                              className="btn btn-warning btn-sm"
+                              title="Request more proof documents"
+                              onClick={() => setActionModal({ campaignId: c.id, action: 'review', title: c.title })}
+                            >
+                              📝 Request Proof
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              title="Reject campaign with remarks"
+                              onClick={() => setActionModal({ campaignId: c.id, action: 'reject', title: c.title })}
+                            >
+                              ❌ Reject
+                            </button>
+                          </>
+                        )}
+
+                        {/* Active Campaign: Admin can only Send Remarks / Ask something, Close, or Delete */}
+                        {c.status === 'active' && (
+                          <>
+                            <button
+                              className="btn btn-outline btn-sm"
+                              style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary-dark)' }}
+                              title="Send remark or message to organizer"
+                              onClick={() => setActionModal({ campaignId: c.id, action: 'remark', title: c.title })}
+                            >
+                              💬 Remarks
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ border: '1px solid var(--border-default)' }}
+                              title="Close campaign"
+                              onClick={() => setActionModal({ campaignId: c.id, action: 'close', title: c.title })}
+                            >
+                              🔒 Close
+                            </button>
+                          </>
+                        )}
+
+                        {/* Rejected Campaign: Option to Re-approve */}
+                        {c.status === 'rejected' && (
                           <button
                             className="btn btn-primary btn-sm"
-                            title="Approve and make public"
+                            title="Re-approve after verification"
                             onClick={() => setActionModal({ campaignId: c.id, action: 'approve', title: c.title })}
                           >
-                            ✅ Approve
+                            ✅ Re-Approve
                           </button>
                         )}
 
-                        {(c.status === 'pending' || c.status === 'active') && (
+                        {/* Closed Campaign: Option to Send Remark */}
+                        {c.status === 'closed' && (
                           <button
-                            className="btn btn-warning btn-sm"
-                            title="Request more proof documents"
-                            onClick={() => setActionModal({ campaignId: c.id, action: 'review', title: c.title })}
+                            className="btn btn-outline btn-sm"
+                            title="Send remark to organizer"
+                            onClick={() => setActionModal({ campaignId: c.id, action: 'remark', title: c.title })}
                           >
-                            📝 Request Proof
+                            💬 Remarks
                           </button>
                         )}
 
-                        {c.status !== 'rejected' && c.status !== 'closed' && (
-                          <button
-                            className="btn btn-danger btn-sm"
-                            title="Reject campaign with remarks"
-                            onClick={() => setActionModal({ campaignId: c.id, action: 'reject', title: c.title })}
-                          >
-                            ❌ Reject
-                          </button>
-                        )}
-
-                        {c.status === 'active' && (
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            title="Close campaign"
-                            onClick={() => setActionModal({ campaignId: c.id, action: 'close', title: c.title })}
-                          >
-                            🔒 Close
-                          </button>
-                        )}
-
+                        {/* Platform safety delete */}
                         <button
                           className="btn btn-danger btn-sm"
                           title="Delete campaign"
@@ -412,33 +450,78 @@ export default function AdminPage() {
             )}
 
             <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end', borderTop: '1px solid var(--border-light)', paddingTop: 'var(--space-4)' }}>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setActionModal({ campaignId: inspectCampaign.id, action: 'approve', title: inspectCampaign.title });
-                  setInspectCampaign(null);
-                }}
-              >
-                ✅ Approve & Publish
-              </button>
-              <button
-                className="btn btn-warning"
-                onClick={() => {
-                  setActionModal({ campaignId: inspectCampaign.id, action: 'review', title: inspectCampaign.title });
-                  setInspectCampaign(null);
-                }}
-              >
-                📝 Request More Proof
-              </button>
-              <button
-                className="btn btn-danger"
-                onClick={() => {
-                  setActionModal({ campaignId: inspectCampaign.id, action: 'reject', title: inspectCampaign.title });
-                  setInspectCampaign(null);
-                }}
-              >
-                ❌ Reject
-              </button>
+              {(inspectCampaign.status === 'pending' || inspectCampaign.status === 'review') ? (
+                <>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setActionModal({ campaignId: inspectCampaign.id, action: 'approve', title: inspectCampaign.title });
+                      setInspectCampaign(null);
+                    }}
+                  >
+                    ✅ Approve & Publish
+                  </button>
+                  <button
+                    className="btn btn-warning"
+                    onClick={() => {
+                      setActionModal({ campaignId: inspectCampaign.id, action: 'review', title: inspectCampaign.title });
+                      setInspectCampaign(null);
+                    }}
+                  >
+                    📝 Request More Proof
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => {
+                      setActionModal({ campaignId: inspectCampaign.id, action: 'reject', title: inspectCampaign.title });
+                      setInspectCampaign(null);
+                    }}
+                  >
+                    ❌ Reject
+                  </button>
+                </>
+              ) : inspectCampaign.status === 'active' ? (
+                <>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setActionModal({ campaignId: inspectCampaign.id, action: 'remark', title: inspectCampaign.title });
+                      setInspectCampaign(null);
+                    }}
+                  >
+                    💬 Send Remarks / Question
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ border: '1px solid var(--border-default)' }}
+                    onClick={() => {
+                      setActionModal({ campaignId: inspectCampaign.id, action: 'close', title: inspectCampaign.title });
+                      setInspectCampaign(null);
+                    }}
+                  >
+                    🔒 Close Campaign
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => {
+                      setActionModal({ campaignId: inspectCampaign.id, action: 'delete', title: inspectCampaign.title });
+                      setInspectCampaign(null);
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-danger"
+                  onClick={() => {
+                    setActionModal({ campaignId: inspectCampaign.id, action: 'delete', title: inspectCampaign.title });
+                    setInspectCampaign(null);
+                  }}
+                >
+                  🗑️ Delete Campaign
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -451,13 +534,19 @@ export default function AdminPage() {
             onSubmit={handleModerationSubmit}
             style={{ background: 'var(--bg-base)', borderRadius: 'var(--radius-lg)', maxWidth: 480, width: '100%', padding: 'var(--space-6)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}
           >
-            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 800, textTransform: 'capitalize' }}>
+            <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 800 }}>
               {actionModal.action === 'approve'
-                ? '✅ Approve Campaign'
+                ? '✅ Approve & Publish Campaign'
                 : actionModal.action === 'review'
-                ? '📝 Request More Proof'
+                ? '📝 Request Additional Proof'
                 : actionModal.action === 'reject'
                 ? '❌ Reject Campaign'
+                : actionModal.action === 'remark'
+                ? '💬 Send Remarks / Inquiry to Organizer'
+                : actionModal.action === 'close'
+                ? '🔒 Close Campaign'
+                : actionModal.action === 'delete'
+                ? '🗑️ Delete Campaign'
                 : `${actionModal.action} Campaign`}
             </h3>
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 'var(--space-2) 0 var(--space-4)' }}>
@@ -470,19 +559,29 @@ export default function AdminPage() {
                   ? 'Remarks / What proof documents should the owner provide? *'
                   : actionModal.action === 'reject'
                   ? 'Reason for rejection (sent to organizer) *'
-                  : 'Remarks (Optional)'}
+                  : actionModal.action === 'remark'
+                  ? 'Message or Inquiry for the Organizer *'
+                  : actionModal.action === 'close'
+                  ? 'Closing Reason or Summary (Optional)'
+                  : actionModal.action === 'delete'
+                  ? 'Deletion reason (Internal audit)'
+                  : 'Remarks / Notes (Optional)'}
               </label>
               <textarea
                 className="form-textarea"
                 rows={3}
                 value={actionReason}
                 onChange={(e) => setActionReason(e.target.value)}
-                required={actionModal.action === 'review' || actionModal.action === 'reject'}
+                required={actionModal.action === 'review' || actionModal.action === 'reject' || actionModal.action === 'remark'}
                 placeholder={
                   actionModal.action === 'review'
                     ? 'e.g. Please upload the official hospital treatment estimate signed by medical superintendent.'
                     : actionModal.action === 'reject'
                     ? 'e.g. Government ID details could not be verified.'
+                    : actionModal.action === 'remark'
+                    ? 'e.g. Hello, please provide an update on patient recovery or latest hospital discharge receipt.'
+                    : actionModal.action === 'close'
+                    ? 'e.g. Campaign target accomplished or closed by organizer request.'
                     : 'Optional internal or donor notes'
                 }
               />
@@ -498,10 +597,30 @@ export default function AdminPage() {
               </button>
               <button
                 type="submit"
-                className={`btn btn-${actionModal.action === 'approve' ? 'primary' : actionModal.action === 'review' ? 'warning' : 'danger'}`}
+                className={`btn btn-${
+                  actionModal.action === 'approve'
+                    ? 'primary'
+                    : actionModal.action === 'review'
+                    ? 'warning'
+                    : actionModal.action === 'remark'
+                    ? 'primary'
+                    : actionModal.action === 'close'
+                    ? 'neutral'
+                    : 'danger'
+                }`}
                 disabled={actionLoading}
               >
-                {actionLoading ? 'Processing…' : `Confirm ${actionModal.action}`}
+                {actionLoading
+                  ? 'Processing…'
+                  : actionModal.action === 'approve'
+                  ? 'Approve & Make Live'
+                  : actionModal.action === 'remark'
+                  ? 'Send Remark'
+                  : actionModal.action === 'close'
+                  ? 'Close Campaign'
+                  : actionModal.action === 'delete'
+                  ? 'Delete Campaign'
+                  : `Confirm ${actionModal.action}`}
               </button>
             </div>
           </form>

@@ -302,9 +302,13 @@ export default function CampaignDetailPage() {
                 <div>
                   <strong>Organizer:</strong> {campaign.owner?.name}
                 </div>
-                {campaign.phone && (
+                {(isOwner || user?.role === 'admin') && campaign.phone ? (
                   <div>
-                    <strong>Mobile Contact:</strong> {campaign.phone.slice(0, 3)}****{campaign.phone.slice(-3)}
+                    <strong>Mobile Contact:</strong> {campaign.phone}
+                  </div>
+                ) : (
+                  <div>
+                    <strong>Mobile Contact:</strong> 🔒 Verified by Admin (Protected)
                   </div>
                 )}
                 {campaign.govIdType && (

@@ -6,6 +6,23 @@
  */
 require('dotenv').config();
 
+const dns = require('dns');
+// On Windows / multi-stack networks, Node.js defaults to IPv6 resolution first,
+// which causes a 30-40s getaddrinfo delay or timeout before falling back to IPv4
+// for external services (api.razorpay.com, googleapis.com).
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
+// Pre-warm DNS asynchronously on server boot so first API call is instantaneous
+['api.razorpay.com', 'oauth2.googleapis.com', 'www.googleapis.com'].forEach((host) => {
+  dns.lookup(host, { family: 4 }, (err) => {
+    if (!err) {
+      console.log(`[dns] Pre-warmed IPv4 for ${host}`);
+    }
+  });
+});
+
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');

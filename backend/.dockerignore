@@ -1,0 +1,10 @@
+node_modules
+.env
+.env.*
+uploads/*
+!uploads/.gitkeep
+*.log
+.git
+.gitignore
+tests
+coverage

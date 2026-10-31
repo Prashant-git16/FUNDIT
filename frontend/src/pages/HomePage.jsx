@@ -23,7 +23,7 @@ export default function HomePage() {
   const [loadingFeatured, setLoadingFeatured] = useState(true);
 
   useEffect(() => {
-    api.get('/api/campaigns?limit=6&sort=most_raised')
+    api.get('/api/campaigns?limit=6&sort=newest')
       .then(({ campaigns }) => setFeatured(campaigns))
       .catch(console.error)
       .finally(() => setLoadingFeatured(false));

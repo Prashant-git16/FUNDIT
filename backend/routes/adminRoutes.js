@@ -108,7 +108,7 @@ router.post(
   '/campaigns/:id/moderate',
   [
     param('id').isInt({ min: 1 }).toInt(),
-    body('action').isIn(['approve', 'review', 'reject', 'close', 'delete']).withMessage("Action must be 'approve', 'review', 'reject', 'close', or 'delete'"),
+    body('action').isIn(['approve', 'review', 'reject', 'close', 'delete', 'remark']).withMessage("Action must be 'approve', 'review', 'reject', 'close', 'delete', or 'remark'"),
     body('reason').optional().trim(),
   ],
   async (req, res) => {
@@ -123,12 +123,13 @@ router.post(
       const [rows] = await pool.query("SELECT id, title, status FROM campaigns WHERE id = ?", [campaignId]);
       if (rows.length === 0) return res.status(404).json({ message: 'Campaign not found' });
 
-      let newStatus = 'active';
+      let newStatus = rows[0].status;
       if (action === 'approve') newStatus = 'active';
       else if (action === 'review') newStatus = 'review';
       else if (action === 'reject') newStatus = 'rejected';
       else if (action === 'close') newStatus = 'closed';
       else if (action === 'delete') newStatus = 'deleted';
+      else if (action === 'remark') newStatus = rows[0].status; // Keeps active or current status, updates remark
 
       await pool.query(
         'UPDATE campaigns SET status = ?, admin_remarks = ? WHERE id = ?',
@@ -142,7 +143,9 @@ router.post(
       );
 
       return res.json({
-        message: `Campaign status updated to ${newStatus}.`,
+        message: action === 'remark'
+          ? 'Remarks recorded and visible to the campaign owner.'
+          : `Campaign ${action}d successfully (Status: ${newStatus}).`,
         status: newStatus,
       });
     } catch (err) {

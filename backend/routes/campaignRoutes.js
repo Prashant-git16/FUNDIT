@@ -19,12 +19,17 @@ const router = express.Router();
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Build a campaign response object, computing derived fields. */
-function formatCampaign(row) {
+/**
+ * Build a campaign response object, computing derived fields and enforcing privacy.
+ * Sensitive fields (organizer phone, government ID number, internal remarks)
+ * are only provided to the campaign owner or platform admins.
+ */
+function formatCampaign(row, requester = null) {
   const raised = parseFloat(row.raised_amount) || 0;
   const target = parseFloat(row.target_amount) || 1;
   const progressPct = Math.min(Math.round((raised / target) * 100), 100);
   const isExpired = row.deadline ? new Date(row.deadline) < new Date() : false;
+  const isPrivileged = requester && (requester.id === row.owner_id || requester.role === 'admin');
 
   let proofDocs = [];
   if (row.proof_documents) {
@@ -55,17 +60,18 @@ function formatCampaign(row) {
     deadline: row.deadline,
     status: isExpired && row.status === 'active' ? 'expired' : row.status,
     govIdType: row.gov_id_type || null,
-    govIdNumber: row.gov_id_number || null,
-    phone: row.phone || null,
+    // Sensitive KYC fields: visible ONLY to campaign owner or platform admin
+    govIdNumber: isPrivileged ? (row.gov_id_number || null) : null,
+    phone: isPrivileged ? (row.phone || null) : null,
     address: row.address || null,
     proofDocuments: proofDocs,
-    adminRemarks: row.admin_remarks || null,
+    adminRemarks: isPrivileged ? (row.admin_remarks || null) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     owner: {
       id: row.owner_id,
       name: row.owner_name,
-      email: row.owner_email,
+      email: isPrivileged ? row.owner_email : undefined,
     },
   };
 }
@@ -129,7 +135,7 @@ router.get(
       );
 
       return res.json({
-        campaigns: rows.map(formatCampaign),
+        campaigns: rows.map((r) => formatCampaign(r, null)),
         pagination: {
           page,
           limit,
@@ -158,7 +164,7 @@ router.get('/my/list', authenticate, async (req, res) => {
     );
 
     return res.json({
-      campaigns: rows.map(formatCampaign),
+      campaigns: rows.map((r) => formatCampaign(r, req.user)),
     });
   } catch (err) {
     console.error('[campaigns/my/list]', err);
@@ -233,7 +239,7 @@ router.get('/:id', optionalAuth, [param('id').isInt({ min: 1 }).toInt()], async 
     const spendingPct = raised > 0 ? Math.min(Math.round((totalExpenses / raised) * 100), 100) : 0;
 
     return res.json({
-      campaign: formatCampaign(rows[0]),
+      campaign: formatCampaign(rows[0], req.user),
       donors,
       expenses: expensesFormatted,
       totalExpenses,
@@ -242,25 +248,6 @@ router.get('/:id', optionalAuth, [param('id').isInt({ min: 1 }).toInt()], async 
   } catch (err) {
     console.error('[campaigns/detail]', err);
     return res.status(500).json({ message: 'Could not load campaign' });
-  }
-});
-
-// ─── GET /api/campaigns/my/list ───────────────────────────────────────────────
-// Authenticated user's campaigns with full statuses (pending, review, active, etc.)
-router.get('/my/list', authenticate, async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      `SELECT c.*, u.name AS owner_name, u.email AS owner_email
-       FROM campaigns c
-       JOIN users u ON c.owner_id = u.id
-       WHERE c.owner_id = ? AND c.status != 'deleted'
-       ORDER BY c.created_at DESC`,
-      [req.user.id]
-    );
-    return res.json({ campaigns: rows.map(formatCampaign) });
-  } catch (err) {
-    console.error('[campaigns/my-list]', err);
-    return res.status(500).json({ message: 'Could not load your campaigns' });
   }
 });
 
@@ -339,7 +326,7 @@ router.post(
       );
 
       return res.status(201).json({
-        campaign: formatCampaign(rows[0]),
+        campaign: formatCampaign(rows[0], req.user),
         message: 'Campaign submitted successfully! It is now under review by platform administrators.',
       });
     } catch (err) {
