@@ -79,6 +79,7 @@ FUNDIT/
 │   └── package.json
 ├── docker-compose.yml             # Multi-container orchestration (App + MySQL)
 ├── package.json                   # Root convenience scripts
+├── PRODUCTION_DEPLOYMENT.md       # Complete step-by-step AWS EC2 + RDS deployment guide
 └── README.md
 ```
 
@@ -196,6 +197,17 @@ When you import `backend/seed.sql`, the following test accounts are ready to use
 | `POST` | `/api/expenses/:campaignId` | Owner | Submit expense receipt with bill image |
 | `GET` | `/api/admin/campaigns` | Admin | Review pending, review, active, and rejected campaigns |
 | `POST` | `/api/admin/campaigns/:id/moderate` | Admin | Approve, request proof, send remarks, close, or delete |
+
+---
+
+## ☁️ Production Deployment on AWS (Without Docker)
+
+Fundit can be deployed on a lightweight **AWS EC2 Free Tier** instance (`t2.micro` or `t3.micro`) backed by **AWS RDS MySQL 8.0**:
+* **Backend**: Node.js 20 managed 24/7 by **PM2** process supervisor (automatic crash restarts and reboot recovery).
+* **Frontend & Reverse Proxy**: **Nginx** serves compiled React static assets and reverse-proxies `/api/*` requests to port 5000.
+* **Database**: **AWS RDS MySQL 8.0** managed cloud database in a private VPC.
+
+For the complete step-by-step walkthrough, see **[PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md)**.
 
 ---
 

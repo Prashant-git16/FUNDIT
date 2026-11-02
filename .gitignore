@@ -43,6 +43,5 @@ coverage/
 # Temporary uploads
 backend/uploads/
 
-# Private deployment and setup guides
-PRODUCTION_DEPLOYMENT.md
+# Private setup guide
 SETUP_GUIDE.md
