@@ -1,4 +1,4 @@
-# Fundit — Full-Stack Verified Crowdfunding Platform
+# Fundit — Verified Crowdfunding Platform
 
 [![Node.js](https://img.shields.io/badge/Node.js-v20%2B-green.svg)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-v19-blue.svg)](https://react.dev/)
